@@ -9,7 +9,7 @@ import gurobipy as gp
 from gurobipy import GRB
 import pandas as pd
 import time
-
+from mpm_supporting_functions import rewrite_buy
 
 
 def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, name='menuplanning'): #let user decide with which variable to run this function
@@ -89,7 +89,6 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, name='menup
     # =============================================================================
     #    Print solutions/ solution to dataframe 
     # =============================================================================
-    
     def printSolution():
         if m.status == GRB.OPTIMAL:
             print('\nTotal carbon footprint of recipes for %s days:: %g g CO2 eq' % (days[-1], m.ObjVal))
@@ -98,7 +97,7 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, name='menup
                     print("Recipe %s on day %s: %g" % (r, d, y[r,d].X))       
         else:
             print('!!!!!!!Not optimal!!!!!!!!')
-    
+
     def dfSolution_y():
         result_dict = {}
         for r in recipes:
@@ -149,6 +148,7 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, name='menup
         stock_planning =stock_planning.transpose()
         return stock_planning
 
+
     #This block of code helps if it is not working
     #printSolution() 
     #print(m.status)
@@ -160,6 +160,7 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, name='menup
     planning_ingredients=dfSolution_x() #formulates a dataframe of the solution
     stock_planning = dfSolution_stock()
     purchase_planning = dfSolution_buy()
+    purchase_planning = rewrite_buy(ing_packs, purchase_planning) #rewrite the info to the dataframe
     purchase_costs = dfSolution_purchasecost()
     
     var_result_dict = {"Planning_recipes":planning_recipes,"Planning_ingredients":planning_ingredients, "Stock_planning":stock_planning, 'Purchase_planning':purchase_planning, "Purchase_costs":purchase_costs}

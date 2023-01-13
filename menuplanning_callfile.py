@@ -7,7 +7,7 @@ Created on Tue Jan 10 16:46:58 2023
 This code calls menuplanningmodel.
 """
 import pandas as pd
-from build_menuplanningmodel import menuplanning
+from menuplanningmodel_build import menuplanning
 
 # ----------------------------------------------------------------------------
 # Initialize the problem data
