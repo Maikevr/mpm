@@ -12,7 +12,7 @@ import time
 from mpm_supporting_functions import rewrite_buy
 
 
-def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, name='menuplanning'): #let user decide with which variable to run this function
+def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_over, name='menuplanning'): #let user decide with which variable to run this function
     start_time = time.time()
     # Model
     m = gp.Model("menuplanning")
@@ -83,7 +83,17 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, name='menup
     # Minimize total cost of diet
     total_cost = gp.quicksum(purchasecost_ing[i] for i in ingredients)
     
-    m.setObjective(waste_ingrams, GRB.MINIMIZE)
+    tiebreaker = 0.000001*total_carbon+0.000001*waste_ingrams+0.000001*carbon_waste+0.0001*total_cost
+    
+    if optimize_over == 'total carbon':
+         m.setObjective(total_carbon+tiebreaker, GRB.MINIMIZE)     #optimize over total_carbon or waste_ingrams or carbon waste
+    elif optimize_over =='waste grams':
+        m.setObjective(waste_ingrams+tiebreaker, GRB.MINIMIZE)
+    elif optimize_over =='waste carbon':
+        m.setObjective(carbon_waste+tiebreaker, GRB.MINIMIZE)
+    elif optimize_over =='total cost':
+        m.setObjective(total_cost+tiebreaker, GRB.MINIMIZE)
+        
     m.optimize()
     
     # =============================================================================
@@ -91,10 +101,12 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, name='menup
     # =============================================================================
     def printSolution():
         if m.status == GRB.OPTIMAL:
-            print('\nTotal carbon footprint of recipes for %s days:: %g g CO2 eq' % (days[-1], m.ObjVal))
-            for r in recipes:
-                for d in days:
-                    print("Recipe %s on day %s: %g" % (r, d, y[r,d].X))       
+            print('\nTotal carbon footprint of recipes for %s days:: %g g CO2 eq' % (days[-1], tot_carbon))
+            for d in days:
+                for r in recipes:
+                    if y[r,d].X == 1:
+                        recipe_id = ing_recipes.loc["recipe_id",r]
+                        print("On day %s recipe: %s" % (d,recipe_id))       
         else:
             print('!!!!!!!Not optimal!!!!!!!!')
 
@@ -174,6 +186,8 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, name='menup
     obj_result_dict = {"Total_carbon":tot_carbon ,"Waste_in_grams":wast_ingrams,"Carbon_waste": carbon_waste, "Total_cost":tot_cost}
     
     objectivevalue = m.ObjVal
+    
+    printSolution()
     
     print("Model status = ",m.status)
     print("--- %s seconds ---" % (time.time() - start_time))
