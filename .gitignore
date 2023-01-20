@@ -1,3 +1,6 @@
 # .gitignore
 menuplanningmodel_JULY.py
 __pycache__
+Results
+.spyproject/config/backups/
+Menu planning model notes.docx

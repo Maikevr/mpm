@@ -21,9 +21,10 @@ n_persons = 4
 ing_recipes = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\Recipe data\recipe_standardised_df.xlsx', sheet_name='Sheet1', index_col=0)
 #ing_recipes = ing_recipes.iloc[:, :20] #small subset for tests
 ing_recipes_hoofd = ing_recipes.loc[:, ing_recipes.loc['mealmoment'] == 'hoofdgerecht'] #subset of dishes that are a main meal
+ing_recipes_hoofd = ing_recipes_hoofd.iloc[:, :20] #small subset for tests
 
 ing_LCA = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\LCA data\20201111_LCA Food database_extrapolaties_milieudatabase_2020_V2.1.xlsx', sheet_name='LCA database inclusief extrapol', index_col=0)
-ing_packs = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\Package data\package_info_standardised_2023-01-06.xlsx', sheet_name='Sheet1', index_col=0)
+ing_packs = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\Package data\package_info_standardised_2023-01-18.xlsx', sheet_name='Sheet1', index_col=0)
 
 # =============================================================================
 # Run model

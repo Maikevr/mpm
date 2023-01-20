@@ -21,3 +21,21 @@ def rewrite_buy(ing_packs, purchase_planning):
         groceries += [abs(amount)]
     purchase_planning_ing_packs["buy"]=groceries
     return purchase_planning_ing_packs
+
+#recipe number to recipe
+def recipe(r):
+    ing_recipes = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\Recipe data\recipe_standardised_df.xlsx', sheet_name='Sheet1', index_col=0)
+    recipe_id = ing_recipes.loc["recipe_id",r]
+    return recipe_id
+
+#nevocode to ingredient
+def ingredient(nevocode):
+    ing_recipes = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\Recipe data\recipe_standardised_df.xlsx', sheet_name='Sheet1', index_col=0)
+    ing_name = ing_recipes.loc[nevocode, "nevonaam"]
+    return ing_name
+
+#package size and nevocode to index of package file
+def indexpack(nevocode,package): #ing_packs already included
+    ing_packs = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\Package data\package_info_standardised_2023-01-18.xlsx', sheet_name='Sheet1', index_col=0)
+    index = ing_packs.loc[(ing_packs["nevocode"]==nevocode) & (ing_packs["Package (g)"]==package)].index.values[0]
+    return index

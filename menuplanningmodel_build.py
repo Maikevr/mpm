@@ -62,16 +62,38 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
        
     # 2.4.2 constraint to compute total cost of the groceries per ingredient
     for i in ingredients:
-        nevoset = ing_packs.loc[ing_packs['nevocode'] == i]
-        m.addConstr(purchasecost_ing[i] == (gp.quicksum(buy[i,p]*eur for p, eur in zip(nevoset["Package (g)"],nevoset["Package price (€/unit)"]))), "purchase cost of package sizes bought per ingredient") #   
-
+        #Perishable items
+        perishables = ing_packs.loc[ing_packs["Shelf_stable"]==0]
+        nevoset_perishable = perishables.loc[ing_packs["nevocode"]==i]
+        if len(nevoset_perishable) != 0:
+            m.addConstr(purchasecost_ing[i] == (gp.quicksum(buy[i,p]*eur for p, eur in 
+                        zip(nevoset_perishable["Package (g)"],nevoset_perishable["Package price (€/unit)"]))), 
+                        "purchase cost of package sizes bought per ingredient, perishable items")
+        #Shelf stable items
+        stables = ing_packs.loc[ing_packs["Shelf_stable"]==1]
+        nevoset_stables = stables.loc[ing_packs["nevocode"]==i]
+        if len(nevoset_stables) != 0:
+            m.addConstr(purchasecost_ing[i] == (gp.quicksum(x[i,d]for d in days[1:])
+                                                /1000*min(nevoset_stables["Price (€/kg)"])))   
     
     
     # =============================================================================
     #     Objective funcition    
     # =============================================================================
-    # Minimize carbon footprint !MAKE THIS ONE MORE CLEAR!
-    total_carbon = gp.quicksum(stock[i,'0']/1000 * ing_LCA['GHGE_kg_CO2eq_per_kg'][i] for i in ingredients[:-2]) #skip overig  
+    # Minimize carbon footprint
+    perishables = ing_packs.loc[ing_packs["Shelf_stable"]==0]
+    perish_set = [i for i in perishables["nevocode"].unique()]
+    tot_carbon_perishable = gp.quicksum(stock[i,"0"]*ing_LCA['GHGE_kg_CO2eq_per_kg'][i] 
+                                        for i in perish_set)
+    
+    stables = ing_packs.loc[ing_packs["Shelf_stable"]==1]
+    stable_set = [i for i in stables["nevocode"].unique()]
+    tot_carbon_stable = gp.quicksum(x[i,d]*ing_LCA['GHGE_kg_CO2eq_per_kg'][i] 
+                                    for i in stable_set for d in days[1:])
+    
+    total_carbon = tot_carbon_perishable+ tot_carbon_stable
+    
+    
     
     # Minimize waste in grams
     last_day = days[-1]
@@ -106,7 +128,9 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
                 for r in recipes:
                     if y[r,d].X == 1:
                         recipe_id = ing_recipes.loc["recipe_id",r]
-                        print("On day %s recipe: %s" % (d,recipe_id))       
+                        print("On day %s recipe: %s" % (d,recipe_id))
+                        #print(tot_carbon_perishable)
+                        #print(tot_carbon_stable)
         else:
             print('!!!!!!!Not optimal!!!!!!!!')
 
