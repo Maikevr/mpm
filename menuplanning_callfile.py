@@ -29,7 +29,7 @@ ing_packs = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University 
 # =============================================================================
 # Run model
 # =============================================================================
-optimize_over="waste grams" #total carbon, waste carbon, waste grams, total cost
+optimize_over="total carbon" #total carbon, waste carbon, waste grams, total cost
 var_result_dict, obj_result_dict = menuplanning(n_days, n_persons, ing_recipes_hoofd, ing_LCA, ing_packs, optimize_over)
 
 # =============================================================================

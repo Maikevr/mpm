@@ -9,6 +9,7 @@ Created on Thu Jan 19 09:53:11 2023
 # =============================================================================
 # Check carbon answer
 # =============================================================================
+#later kan ik hier misschien een soort automatische check van maken. Dat dit automatisch wordt vergeleken met de model uitkomst
 perishables = ing_packs.loc[ing_packs["Shelf_stable"]==0]
 perish_set = [i for i in perishables["nevocode"].unique()]
 

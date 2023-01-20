@@ -80,9 +80,12 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
     # =============================================================================
     #     Objective funcition    
     # =============================================================================
-    # Minimize carbon footprint
+    
     perishables = ing_packs.loc[ing_packs["Shelf_stable"]==0]
     perish_set = [i for i in perishables["nevocode"].unique()]
+    
+    
+    # Minimize carbon footprint
     tot_carbon_perishable = gp.quicksum(stock[i,"0"]*ing_LCA['GHGE_kg_CO2eq_per_kg'][i] 
                                         for i in perish_set)
     
@@ -94,16 +97,18 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
     total_carbon = tot_carbon_perishable+ tot_carbon_stable
     
     
-    
     # Minimize waste in grams
     last_day = days[-1]
-    waste_ingrams = gp.quicksum(stock[i,last_day] for i in ingredients)
+    waste_ingrams = gp.quicksum(stock[i,last_day] for i in perish_set)
     
-    # Minimize waste in carbon footprint #Berekend kg CO2
-    carbon_waste = gp.quicksum(stock[i,last_day]/1000*ing_LCA['GHGE_kg_CO2eq_per_kg'][i] for i in ingredients[:-2 ]) #computed by computing the environmental impact of the ingredients bought on day 1
+    
+    # Minimize waste in carbon footprint 
+    carbon_waste = gp.quicksum(stock[i,last_day]*ing_LCA['GHGE_kg_CO2eq_per_kg'][i] for i in perish_set) #computed by computing the environmental impact of the ingredients bought on day 1
+
 
     # Minimize total cost of diet
     total_cost = gp.quicksum(purchasecost_ing[i] for i in ingredients)
+    
     
     tiebreaker = 0.000001*total_carbon+0.000001*waste_ingrams+0.000001*carbon_waste+0.0001*total_cost
     
