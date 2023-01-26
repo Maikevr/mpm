@@ -8,11 +8,13 @@ Created on Tue Jan 10 16:55:56 2023
 import gurobipy as gp
 from gurobipy import GRB
 import pandas as pd
+import numpy as np
 import time
 from mpm_supporting_functions import rewrite_buy
 
 
-def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_over, name='menuplanning'): #let user decide with which variable to run this function
+def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_over, 
+                 fcd, drv, excep_codes, name='menuplanning'): #let user decide with which variable to run this function
     start_time = time.time()
     # Model
     m = gp.Model("menuplanning")
@@ -24,16 +26,22 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
     recipes = ing_recipes.columns[1:]
     ingredients = ing_recipes.index.values[2:]
     packagesize = range(5001)
+    #eventually create a unique index for package ingredients combinations.
+    nutrients = drv.index.values # later aanpassen naar alle nutrients
     
     # =============================================================================
     #     Decision variables
     # =============================================================================
     y = m.addVars(recipes, days, vtype=GRB.BINARY,name="y") #if recipe r is planned on day d or not
+    buy = m.addVars(ingredients,packagesize, vtype=GRB.INTEGER,name="buy") #number of packages of size s to buy for ingerdients i (Only on )
+
+    #supporting variables
     x = m.addVars(ingredients, days, vtype=GRB.CONTINUOUS,name="x") #grams of ingredients i planned on day d
     stock = m.addVars(ingredients, days, vtype=GRB.CONTINUOUS,name="stock") #stock of ingredients i on day d
     #ik wil alleen een buy i,p aanmaken als deze bestaat. dus voor elke i zijn er maar een paar p's
-    buy = m.addVars(ingredients,packagesize, vtype=GRB.INTEGER,name="buy") #number of packages of size s to buy for ingerdients i (Only on )
     purchasecost_ing = m.addVars(ingredients, vtype=GRB.CONTINUOUS,name="purchasecost_ing")
+    NIA = m.addVars(nutrients, days, vtype=GRB.CONTINUOUS, name="Nutrient Intake Absolute")
+    NIAslack = m.addVars(nutrients, days, vtype=GRB.CONTINUOUS, name="Nutrient Intake Absolute slack variable")
     
     # =============================================================================
     #     Constraints
@@ -53,14 +61,18 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
     
     # 2.4 constraint to compute ingredients used for cooking per day  
     # 2.4.1 constraint to make sure that ingredients used for a day is substracted from ingredients on stock
-    for di in range(len(days)):
-        if di != 0:
+    for d in range(len(days)):
+        if d != 0:
             for i in ingredients: #kan dit mooier dan met 3 loops?
-                used = n_persons*gp.quicksum(ing_recipes.loc[i,r]*y[r,str(di)] for r in recipes)
-                m.addConstr(x[i,str(di)] == used, "ingredients used for cooking per day")
-                m.addConstr(stock[i,str(di)] == stock[i,str(di-1)]-used, "stock equation")
+                used = n_persons*gp.quicksum(ing_recipes.loc[i,r]*y[r,str(d)] for r in recipes)
+                m.addConstr(x[i,str(d)] == used, "ingredients used for cooking per day")
+                if i in excep_codes.index.values: #to make sure that for e.g. cooked couscous not too much raw couscous is bought
+                    conversion = excep_codes.loc[i,"Conversion_factor"]
+                    m.addConstr(stock[i,str(d)] == stock[i,str(d-1)]-used/conversion, "stock equation (exceptions)")
+                else:
+                    m.addConstr(stock[i,str(d)] == stock[i,str(d-1)]-used, "stock equation")
        
-    # 2.4.2 constraint to compute total cost of the groceries per ingredient
+    # 2.4.2 constraint to compute total cost of the groceries per ingredient, change later to allow specific choices per package!!
     for i in ingredients:
         #Perishable items
         perishables = ing_packs.loc[ing_packs["Shelf_stable"]==0]
@@ -73,19 +85,57 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
         stables = ing_packs.loc[ing_packs["Shelf_stable"]==1]
         nevoset_stables = stables.loc[ing_packs["nevocode"]==i]
         if len(nevoset_stables) != 0:
-            m.addConstr(purchasecost_ing[i] == (gp.quicksum(x[i,d]for d in days[1:])
-                                                /1000*min(nevoset_stables["Price (€/kg)"])))   
+            cheapest = nevoset_stables[["Price (€/kg)"]].idxmin().item()
+            packsize = int(nevoset_stables.loc[cheapest,"Package (g)"].item()) #size of the cheapest product
+            #Don't buy packages that are not used
+            for p in stables["Package (g)"]:
+                if p != packsize:
+                    m.addConstr(buy[i,p]==0,"Don't buy the more expensive packages")         
+            #Don't buy more packages than necessary
+            m.addConstr(buy[i,packsize] <= gp.quicksum(x[i,d] for d in days[1:])/packsize+1, "Upper bound for shelfstable packages") #make sure that not too many packages are bought. Right hand side always rounds up to the nearest integer of packaging size because of the plus 1.
+            m.addConstr(buy[i,packsize] <= gp.quicksum(x[i,d] for d in days[1:]), "Don't buy if not used") #so if x=0 then buy=0
+            #add costs 
+            if i in excep_codes.index.values: #to make sure that for e.g. cooked couscous not too much raw couscous is bought
+                conversion = excep_codes.loc[i,"Conversion_factor"]   
+                m.addConstr(purchasecost_ing[i] == (gp.quicksum(x[i,d]/conversion for d in days[1:])
+                                                    /1000*min(nevoset_stables["Price (€/kg)"])),"Purchase cost usage of stable items (exceptions)")
+            else:
+                m.addConstr(purchasecost_ing[i] == (gp.quicksum(x[i,d] for d in days[1:])
+                                                /1000*min(nevoset_stables["Price (€/kg)"])),"Purchase cost usage of stable items")   
+
+    # 2.5 Constraint to add DRVs
+    #compute NIA
+    for d in days:
+         for j in nutrients:
+             m.addConstr(NIA[j,d] == gp.quicksum(x[i,d]*fcd.loc[i,j]/100 for i in ingredients),"Compute nutrient intake")
     
+    # 2.5.1 constraint for the weekly nutrients
+    for j in nutrients:
+        if j in drv.index.values and drv.loc[j, "Daily or weekly nutrient"] == "weekly":
+            m.addConstr(gp.quicksum(NIA[j,d]+NIAslack[j,d] for d in days[1:]) 
+                        >= drv.loc[j,"ADH"]*n_persons*n_days, "Weekly nutrient constraint lowerbound") #Later adapt this for custom drvs
+            if not np.isnan(drv.loc[j,"Bovengrens"]):
+                m.addConstr(gp.quicksum(NIA[j,d]-NIAslack[j,d] for d in days[1:]) 
+                            <= drv.loc[j,"Bovengrens"]*n_persons*n_days, "Weekly nutrient constraint upperbound")
     
-    # =============================================================================
+    # 2.5.2 constraint for daily nutrient
+    for j in nutrients:
+        for d in days[1:]:
+            if j in drv.index.values and drv.loc[j, "Daily or weekly nutrient"] == "daily":
+                m.addConstr(NIA[j,d]+NIAslack[j,d] >= drv.loc[j,"ADH"]*n_persons, "Daily nutrient constraint lowerbound")
+                if not np.isnan(drv.loc[j,"Bovengrens"]):
+                    m.addConstr(NIA[j,d]-NIAslack[j,d] <= drv.loc[j,"Bovengrens"]*n_persons, "Daily nutrient constraint upperbound")
+
+    #==========================================================================
     #     Objective funcition    
     # =============================================================================
     
     perishables = ing_packs.loc[ing_packs["Shelf_stable"]==0]
+    stables = ing_packs.loc[ing_packs["Shelf_stable"]==1]
     perish_set = [i for i in perishables["nevocode"].unique()]
+    stable_set = [i for i in stables["nevocode"].unique()]
     
-    
-    # Minimize carbon footprint
+    # 1. Minimize carbon footprint
     tot_carbon_perishable = gp.quicksum(stock[i,"0"]*ing_LCA['GHGE_kg_CO2eq_per_kg'][i] 
                                         for i in perish_set)
     
@@ -97,20 +147,24 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
     total_carbon = tot_carbon_perishable+ tot_carbon_stable
     
     
-    # Minimize waste in grams
+    # 2. Minimize waste in grams
     last_day = days[-1]
     waste_ingrams = gp.quicksum(stock[i,last_day] for i in perish_set)
     
     
-    # Minimize waste in carbon footprint 
+    # 3. Minimize waste in carbon footprint 
     carbon_waste = gp.quicksum(stock[i,last_day]*ing_LCA['GHGE_kg_CO2eq_per_kg'][i] for i in perish_set) #computed by computing the environmental impact of the ingredients bought on day 1
 
 
-    # Minimize total cost of diet
+    # 4. Minimize total cost of diet
     total_cost = gp.quicksum(purchasecost_ing[i] for i in ingredients)
     
+    # =============================================================================
+    #     Run the model
+    # =============================================================================
     
-    tiebreaker = 0.000001*total_carbon+0.000001*waste_ingrams+0.000001*carbon_waste+0.0001*total_cost
+    tiebreaker = 0.000001*total_carbon+0.000001*waste_ingrams+0.000001*carbon_waste+0.0001*total_cost 
+    + 0.00001*gp.quicksum(NIAslack[j,d] for j in nutrients for d in days[1:]) 
     
     if optimize_over == 'total carbon':
          m.setObjective(total_carbon+tiebreaker, GRB.MINIMIZE)     #optimize over total_carbon or waste_ingrams or carbon waste
@@ -121,11 +175,15 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
     elif optimize_over =='total cost':
         m.setObjective(total_cost+tiebreaker, GRB.MINIMIZE)
         
+    init_time = time.time()
+    print("---Initialisation time %s seconds ---" % (time.time() - init_time))
+    
     m.optimize()
     
     # =============================================================================
     #    Print solutions/ solution to dataframe 
     # =============================================================================
+    
     def printSolution():
         if m.status == GRB.OPTIMAL:
             print('\nTotal carbon footprint of recipes for %s days:: %g g CO2 eq' % (days[-1], tot_carbon))
@@ -188,8 +246,28 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
         stock_planning =pd.DataFrame(result_dict)
         stock_planning =stock_planning.transpose()
         return stock_planning
+    
+    def dfSolution_NIA():
+        result_dict = {}
+        for j in nutrients:
+            result_dict[j]={}
+            for d in days:
+                result_dict[j][d] = NIA[j,d].X
+        NIAsol =pd.DataFrame(result_dict)
+        NIAsol =NIAsol.transpose()
+        return NIAsol
+    
+    def dfSolution_NIAslack():
+        result_dict = {}
+        for j in nutrients:
+            result_dict[j]={}
+            for d in days:
+                result_dict[j][d] = NIAslack[j,d].X
+        NIAslacksol =pd.DataFrame(result_dict)
+        NIAslacksol =NIAslacksol.transpose()
+        return NIAslacksol
 
-
+    
     #This block of code helps if it is not working
     #printSolution() 
     #print(m.status)
@@ -203,8 +281,12 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
     purchase_planning = dfSolution_buy()
     purchase_planning = rewrite_buy(ing_packs, purchase_planning) #rewrite the info to the dataframe
     purchase_costs = dfSolution_purchasecost()
+    NIAsol = dfSolution_NIA()
+    NIAslacksol = dfSolution_NIAslack()
     
-    var_result_dict = {"Planning_recipes":planning_recipes,"Planning_ingredients":planning_ingredients, "Stock_planning":stock_planning, 'Purchase_planning':purchase_planning, "Purchase_costs":purchase_costs}
+    var_result_dict = {"Planning_recipes":planning_recipes,"Planning_ingredients":planning_ingredients, 
+                       "Stock_planning":stock_planning, 'Purchase_planning':purchase_planning, 
+                       "Purchase_costs":purchase_costs, 'NIA':NIAsol, "NIAslack":NIAslacksol}
     
     #get the values of the LinExpr used
     tot_carbon = total_carbon.getValue()
@@ -219,5 +301,6 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
     printSolution()
     
     print("Model status = ",m.status)
-    print("--- %s seconds ---" % (time.time() - start_time))
+    print("---Initialisation time %s seconds ---" % (time.time() - init_time))
+    print("---Total computation time %s seconds ---" % (time.time() - start_time))
     return var_result_dict, obj_result_dict

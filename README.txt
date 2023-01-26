@@ -57,9 +57,66 @@ Waste_in_grams
 18-01-2023 15:00
 Let op!!! Overig wordt nu dus niet meegenomen
 
+
 18-01-2023 17:30
 Ik heb erin gemaakt dat ie rekening houdt met verpakkingen voor de total carbon, dus onderscheid
 tussen perishable en non perishable. Ik denk dat dit de rekening veeeel te lang
 maakt voor die paar producten waarin er binnen de verpakkingen onderscheid zit
 tussen houdbaar/niet houdbaar. Aan de andere kant zou die wel een belangrijk onderscheid
 kunnen worden voor mijn onderzoek.
+
+
+24-01-2023 12:00
+Teruggegaan naar main branch, hier gewoon perishability op itemniveau toegevoegd.
+
+
+25-01-2023 12:00
+DRVs toegevoegd.
+
+comp times with full sets:
+
+cost:
+---Initialisation time 11.809893369674683 seconds ---
+---Total computation time 219.29781889915466 seconds ---
+
+tot carbon:
+---Initialisation time 12.223147869110107 seconds ---
+---Total computation time 209.3211534023285 seconds ---
+
+waste carbon:
+---Initialisation time 57.00292730331421 seconds ---
+---Total computation time 275.98027992248535 seconds ---
+
+waste grams:
+---Initialisation time 64.02819657325745 seconds ---
+---Total computation time 260.0001382827759 seconds ---
+
+
+
+26-01-2023 12:00
+Fixed buy bug. Of shelf-stable items, many packages were bought because it was
+not penalized. Now I set a maximum to the ones used. Also, only the cheapest packages
+are bought for shelf-stable items.
+
+Fixed exceptions bug. For instance for couscous, a lot had to be bought. Because
+for the LCA and NIA cooked couscous is accounted, while less raw couscous has to be
+bought. I added the conversion factor to the items for which a lot has to be bought.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
