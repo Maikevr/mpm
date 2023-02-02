@@ -14,7 +14,7 @@ from mpm_supporting_functions import rewrite_buy
 
 
 def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_over, 
-                 fcd, drv, excep_codes, name='menuplanning'): #let user decide with which variable to run this function
+                 fcd, drv, excep_codes, dev, name='menuplanning'): #let user decide with which variable to run this function
     start_time = time.time()
     # Model
     m = gp.Model("menuplanning")
@@ -103,8 +103,8 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
                 m.addConstr(purchasecost_ing[i] == (gp.quicksum(x[i,d] for d in days[1:])
                                                 /1000*min(nevoset_stables["Price (€/kg)"])),"Purchase cost usage of stable items")   
 
-    # 2.5 Constraint to add DRVs
-    #compute NIA
+    # 2.5 Constraint to add DRVs        
+    # compute NIA
     for d in days:
          for j in nutrients:
              m.addConstr(NIA[j,d] == gp.quicksum(x[i,d]*fcd.loc[i,j]/100 for i in ingredients),"Compute nutrient intake")
@@ -113,19 +113,23 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
     for j in nutrients:
         if j in drv.index.values and drv.loc[j, "Daily or weekly nutrient"] == "weekly":
             m.addConstr(gp.quicksum(NIA[j,d]+NIAslack[j,d] for d in days[1:]) 
-                        >= drv.loc[j,"ADH"]*n_persons*n_days, "Weekly nutrient constraint lowerbound") #Later adapt this for custom drvs
+                        >= drv.loc[j,"ADH"]*n_persons*n_days*(1-dev), "Weekly nutrient constraint lowerbound") #Later adapt this for custom drvs
             if not np.isnan(drv.loc[j,"Bovengrens"]):
                 m.addConstr(gp.quicksum(NIA[j,d]-NIAslack[j,d] for d in days[1:]) 
-                            <= drv.loc[j,"Bovengrens"]*n_persons*n_days, "Weekly nutrient constraint upperbound")
+                            <= drv.loc[j,"Bovengrens"]*n_persons*n_days*(1+dev), "Weekly nutrient constraint upperbound")
     
     # 2.5.2 constraint for daily nutrient
     for j in nutrients:
         for d in days[1:]:
             if j in drv.index.values and drv.loc[j, "Daily or weekly nutrient"] == "daily":
-                m.addConstr(NIA[j,d]+NIAslack[j,d] >= drv.loc[j,"ADH"]*n_persons, "Daily nutrient constraint lowerbound")
+                m.addConstr(NIA[j,d]+NIAslack[j,d] >= drv.loc[j,"ADH"]*n_persons*(1-dev), "Daily nutrient constraint lowerbound")
                 if not np.isnan(drv.loc[j,"Bovengrens"]):
-                    m.addConstr(NIA[j,d]-NIAslack[j,d] <= drv.loc[j,"Bovengrens"]*n_persons, "Daily nutrient constraint upperbound")
+                    m.addConstr(NIA[j,d]-NIAslack[j,d] <= drv.loc[j,"Bovengrens"]*n_persons*(1+dev), "Daily nutrient constraint upperbound")
 
+    # 2.5.3 enable this code to don't allow slack
+    for j in nutrients:
+        for d in days[1:]:
+            m.addConstr(NIAslack[j,d] == 0, "don't allow slack")
     #==========================================================================
     #     Objective funcition    
     # =============================================================================
@@ -139,8 +143,6 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
     tot_carbon_perishable = gp.quicksum(stock[i,"0"]*ing_LCA['GHGE_kg_CO2eq_per_kg'][i] 
                                         for i in perish_set)
     
-    stables = ing_packs.loc[ing_packs["Shelf_stable"]==1]
-    stable_set = [i for i in stables["nevocode"].unique()]
     tot_carbon_stable = gp.quicksum(x[i,d]*ing_LCA['GHGE_kg_CO2eq_per_kg'][i] 
                                     for i in stable_set for d in days[1:])
     
@@ -176,7 +178,7 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
         m.setObjective(total_cost+tiebreaker, GRB.MINIMIZE)
         
     init_time = time.time()
-    print("---Initialisation time %s seconds ---" % (time.time() - init_time))
+    print("---Initialisation time %s seconds ---" % (init_time - start_time))
     
     m.optimize()
     
@@ -301,6 +303,6 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
     printSolution()
     
     print("Model status = ",m.status)
-    print("---Initialisation time %s seconds ---" % (time.time() - init_time))
+    print("---Initialisation time %s seconds ---" % (init_time - start_time))
     print("---Total computation time %s seconds ---" % (time.time() - start_time))
     return var_result_dict, obj_result_dict

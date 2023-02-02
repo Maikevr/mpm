@@ -34,6 +34,8 @@ print(carbp+carbs)
 # #solution check total carbon perishable. als dit hetzelfde is als uitkomst werkt het. Hoe kan
 # #ik dit sneller maken????
 # =============================================================================
+import time
+start = time.time()
 testperish = 0
 for i,p in zip(ing_packs["nevocode"],ing_packs["Package (g)"]):
     index = indexpack(i,p)
@@ -42,12 +44,15 @@ for i,p in zip(ing_packs["nevocode"],ing_packs["Package (g)"]):
         #print(purchase_planning.loc[index,"buy"], ing_packs.loc[index,"Package (g)"], ing_LCA['GHGE_kg_CO2eq_per_kg'][i])
         testperish += purchase_planning.loc[index,"buy"]*ing_packs.loc[index,"Package (g)"]*ing_LCA['GHGE_kg_CO2eq_per_kg'][i] 
 print(testperish)
-
+print(time.time()-start)
   
 
 # =============================================================================
 # #Dit stuk heeft nog niet gewerkt, duurt veel te lang    
 # =============================================================================
+import time
+start = time.time()
+print(start)
 teststable = 0
 stableconsumed = planning_ingredients.sum(axis=1)
 for i in ingredients:
@@ -63,6 +68,7 @@ for i in ingredients:
         print(hap)
         teststable += hap*ing_LCA['GHGE_kg_CO2eq_per_kg'][i]
 print(teststable)
+print(time.time()-start)
         
 
 # =============================================================================

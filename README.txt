@@ -103,7 +103,9 @@ for the LCA and NIA cooked couscous is accounted, while less raw couscous has to
 bought. I added the conversion factor to the items for which a lot has to be bought.
 
 
-
+02-02-2023 10:30
+Fixed some recipes. First try with new DRVs without slacks. DRVs for model family.
+Model is infeasible.
 
 
 

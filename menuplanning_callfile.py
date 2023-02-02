@@ -15,13 +15,15 @@ from menuplanningmodel_build import menuplanning
 # ----------------------------------------------------------------------------
 n_days = 5 # for how many days do you want to make a planning?
 n_persons = 4
+dev = 0.1 #allow for x% deviation of the DRVs
 
 # ----------------------------------------------------------------------------
 # Import files
 # ----------------------------------------------------------------------------
 ing_recipes = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\Recipe data\recipe_standardised_df.xlsx', sheet_name='Sheet1', index_col=0)
 fcd = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\Food Composition Database\FCD - Model input.xlsx', sheet_name='Sheet1', index_col=0)
-drv = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\DRVs\DRVs - Model input.xlsx', sheet_name='Vrouw 31-39 jaar oud, gemiddeld', index_col=0)
+#moeder - drv = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\DRVs\DRVs - Model input.xlsx', sheet_name='Vrouw 31-39 jaar oud, gemiddeld', index_col=0)
+drv = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\DRVs\DRVs - Model input.xlsx', sheet_name='Modelgezin, gemiddeld', index_col=0)
 ing_LCA = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\LCA data\20201111_LCA Food database_extrapolaties_milieudatabase_2020_V2.1.xlsx', sheet_name='LCA database inclusief extrapol', index_col=0)
 ing_packs = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\Package data\package_info_standardised_2023-01-18.xlsx', sheet_name='Sheet1', index_col=0)
 nevo_exceptions = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\Recipe data\NEVO_synonyms_exceptions.xlsx', sheet_name='Sheet1', index_col=0)
@@ -33,8 +35,7 @@ ing_recipes_hoofd = ing_recipes_hoofd.iloc[:,:] #small subset for tests
 
 drv = drv.replace("-",np.nan)
 drv = drv.loc[["Eiwit (g)","Calcium (mg)","IJzer (mg)", "Zink (mg)", "RAE (Vit A) (µg)",
-              "Vit B1  (mg)", "Vit B2 (mg)","Vitamine B3 (mg) ", "Vitamine B6 (mg)",
-              "Folaat equiv (µg)", "Vit B12 (µg)"],:]
+              "Vit B1  (mg)", "Vit B2 (mg)", "Folaat equiv (µg)", "Vit B12 (µg)"],:]
 
 excep_codes = nevo_exceptions[nevo_exceptions["Account_pack_size"]==0]
 
@@ -45,7 +46,7 @@ excep_codes = nevo_exceptions[nevo_exceptions["Account_pack_size"]==0]
 optimize_over="waste grams" #total carbon, waste carbon, waste grams, total cost
 var_result_dict, obj_result_dict = menuplanning(n_days, n_persons, ing_recipes_hoofd, 
                                                 ing_LCA, ing_packs, optimize_over, fcd,
-                                                drv, excep_codes)
+                                                drv, excep_codes,dev)
 
 # =============================================================================
 # Store results
