@@ -168,13 +168,13 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
     tiebreaker = 0.000001*total_carbon+0.000001*waste_ingrams+0.000001*carbon_waste+0.0001*total_cost 
     + 0.00001*gp.quicksum(NIAslack[j,d] for j in nutrients for d in days[1:]) 
     
-    if optimize_over == 'total carbon':
+    if optimize_over == 'Total_carbon':
          m.setObjective(total_carbon+tiebreaker, GRB.MINIMIZE)     #optimize over total_carbon or waste_ingrams or carbon waste
-    elif optimize_over =='waste grams':
+    elif optimize_over =='Waste_grams':
         m.setObjective(waste_ingrams+tiebreaker, GRB.MINIMIZE)
-    elif optimize_over =='waste carbon':
+    elif optimize_over =='Carbon_waste':
         m.setObjective(carbon_waste+tiebreaker, GRB.MINIMIZE)
-    elif optimize_over =='total cost':
+    elif optimize_over =='Total_cost':
         m.setObjective(total_cost+tiebreaker, GRB.MINIMIZE)
         
     init_time = time.time()
@@ -207,6 +207,7 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
                 result_dict[r][d]=y[r,d].X
         planning =pd.DataFrame(result_dict)
         planning=planning.transpose()
+        planning.index.name = "Recipe_num"
         return planning
     
     def dfSolution_x():
@@ -217,6 +218,7 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
                 result_dict[i][d]=x[i,d].X
         planning_ingredients =pd.DataFrame(result_dict)
         planning_ingredients =planning_ingredients.transpose()
+        planning_ingredients.index.name = 'nevocode'
         return planning_ingredients
     
     def dfSolution_buy():
@@ -237,6 +239,7 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
         #print(result_dict)
         purchase_costs =pd.DataFrame(result_dict,index=['cost in euros'])
         purchase_costs =purchase_costs.transpose()
+        purchase_costs.index.name = 'nevocode'
         return purchase_costs
     
     def dfSolution_stock():
@@ -247,6 +250,7 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
                 result_dict[i][d]=stock[i,d].X
         stock_planning =pd.DataFrame(result_dict)
         stock_planning =stock_planning.transpose()
+        stock_planning.index.name = 'nevocode'
         return stock_planning
     
     def dfSolution_NIA():
@@ -296,13 +300,15 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
     carbon_waste = carbon_waste.getValue()
     tot_cost = total_cost.getValue()
     
-    obj_result_dict = {"Total_carbon":tot_carbon ,"Waste_in_grams":wast_ingrams,"Carbon_waste": carbon_waste, "Total_cost":tot_cost}
+    obj_result_dict = {"Total_carbon":tot_carbon ,"Waste_grams":wast_ingrams,"Carbon_waste": carbon_waste, "Total_cost":tot_cost}
     
     objectivevalue = m.ObjVal
     
     printSolution()
     
     print("Model status = ",m.status)
+    end_time = time.time()
+    times = {"init_time":init_time-start_time,"total_time":end_time-start_time}
     print("---Initialisation time %s seconds ---" % (init_time - start_time))
-    print("---Total computation time %s seconds ---" % (time.time() - start_time))
-    return var_result_dict, obj_result_dict
+    print("---Total computation time %s seconds ---" % (end_time - start_time))
+    return var_result_dict, obj_result_dict,times

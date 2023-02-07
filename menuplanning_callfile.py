@@ -9,6 +9,7 @@ This code calls menuplanningmodel.
 import pandas as pd
 import numpy as np
 from menuplanningmodel_build import menuplanning
+from mpm_excelwriter import sol_toexcel
 
 # ----------------------------------------------------------------------------
 # Initialize the problem data
@@ -43,13 +44,19 @@ excep_codes = nevo_exceptions[nevo_exceptions["Account_pack_size"]==0]
 # =============================================================================
 # Run model
 # =============================================================================
-optimize_over="waste grams" #total carbon, waste carbon, waste grams, total cost
-var_result_dict, obj_result_dict = menuplanning(n_days, n_persons, ing_recipes_hoofd, 
+optimize_over="Waste_grams" #Carbon_waste, Total_carbon, Total_cost, Waste_grams
+var_result_dict, obj_result_dict, times = menuplanning(n_days, n_persons, ing_recipes_hoofd, 
                                                 ing_LCA, ing_packs, optimize_over, fcd,
                                                 drv, excep_codes,dev)
 
+
 # =============================================================================
-# Store results
+# Write results to excel
+# =============================================================================
+sol_toexcel(obj_result_dict, var_result_dict, times, optimize_over, n_days, n_persons, ing_recipes, dev)
+
+# =============================================================================
+# Store results locally
 # =============================================================================
 planning_recipes = var_result_dict["Planning_recipes"]
 planning_ingredients = var_result_dict["Planning_ingredients"]

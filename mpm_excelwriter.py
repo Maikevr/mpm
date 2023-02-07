@@ -1,0 +1,154 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Feb  6 15:15:07 2023
+
+@author: rooij091
+
+Write model outputs to excel.
+"""
+from datetime import datetime
+from datetime import date
+import xlsxwriter
+import pandas as pd
+
+def sol_toexcel(obj_result_dict, var_result_dict, times, obj, n_days, n_persons, ing_recipes, dev):
+    filename = str(date.today())+'_'+obj+'.xlsx'
+    path = "Results/"+filename
+    writer = pd.ExcelWriter(path,engine='xlsxwriter') #makes it possible to add pandas 
+    workbook = writer.book
+    
+    bold_format = workbook.add_format({'bold':True, 'align':'left'})
+    highlight_format = workbook.add_format({'bg_color':'#D8E4BC'})
+    percent_format = workbook.add_format({'num_format':'0.0%'})
+    # =============================================================================
+    #     overview page
+    # =============================================================================
+    overview = workbook.add_worksheet("Overview") #manual sheet, without andas
+    overview.set_column(0,0,30)
+    
+    #date and time of model run/writing
+    overview.write('A1', "Date and time of model run:")
+    overview.write("B1", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    
+    #objective
+    overview.write('A2', "Objective:")
+    overview.write("B2", obj, bold_format)
+    
+    #number days and persons
+    overview.write("A4", "Number of days run for:")
+    overview.write("B4", n_days)
+    overview.write("A5", "Number of persons run for:")
+    overview.write("B5", n_persons)
+    overview.write("A6", "Deviation allowed from the DRVs")
+    overview.write("B6", dev, percent_format)
+    
+    #objectives, highlight current objective
+    overview.write("A8", "Total", bold_format)
+    row = 8
+    col = 0
+    for key in obj_result_dict:
+        overview.write(row, col, key)
+        if key == obj:
+            overview.write(row, col+1, round(obj_result_dict[key]), highlight_format)
+        else:
+            overview.write(row, col+1, round(obj_result_dict[key]))
+        row+=1
+    
+    overview.set_column(3,3,30)
+    overview.write("D8", "Per day per person", bold_format)
+    row = 8
+    col = 3
+    for key in obj_result_dict:
+        overview.write(row, col, key)
+        if key == obj:
+            overview.write(row, col+1, round(obj_result_dict[key]/(n_days*n_persons)), highlight_format)
+        else:
+            overview.write(row, col+1, round(obj_result_dict[key]/(n_days*n_persons)))
+        row+=1
+        
+    #init time and total time
+    overview.write('A14', "Model initialization time:")
+    overview.write("B14", round(times["total_time"]))
+    overview.write('A15', "Model total time:")
+    overview.write("B15", round(times["init_time"]))
+
+
+    overview.write('A17', "Notes below are added manually:", bold_format)
+
+    # =============================================================================
+    #     var sheets
+    # =============================================================================
+
+    #Planning recipes
+    planning_sheet = workbook.add_worksheet("Planning_recipes") #manual sheet, without andas
+    planning_sheet.write(0,0, 'Recipe per planned on day:', bold_format)
+    planning_recipes = var_result_dict["Planning_recipes"]
+    index_not = planning_recipes[(planning_recipes!=1).all(1)].index
+    planning_recipes = planning_recipes.drop(index_not)
+    row = 1
+    col = 0
+    for day in planning_recipes.iloc[:,1:]:
+        planning_sheet.write(row, col, "Day "+str(day))
+        recipe_idx = planning_recipes[planning_recipes[day]==1].index[0]
+        recipe = ing_recipes.loc['recipe_id',recipe_idx]
+        planning_sheet.write(row, col+1, recipe)
+        row+=1
+    
+    #NIA #later nog met kleurtjes aangeven of het te laag of te hoog is, en ontbrekende ook doen (not optimized)
+    NIA = var_result_dict["NIA"]
+    NIA.columns = ["Day "+str(d) for d in range(n_days+1)]
+    NIA.to_excel(writer, sheet_name="NIA",startrow=0)
+    NIAsheet = writer.sheets["NIA"]
+    NIAsheet.set_column(0,0,20)
+    
+    #Planning ingredients
+    planning_ingredients = var_result_dict["Planning_ingredients"]
+    if ing_recipes.index[2:].equals(planning_ingredients.index) and len(planning_ingredients.columns) < n_days+2:
+        planning_ingredients.insert(0, "new", ing_recipes.iloc[2:,0])
+        planning_ingredients.columns = ['nevonaam']+["Day "+str(d) for d in range(n_days+1)]
+    #planning_ingredients = planning_ingredients.sort_values(["Day 1"], ascending=[False]) #presort  
+    planning_ingredients.to_excel(writer, sheet_name="Planning_ingredients",startrow=0,startcol=0)   
+    pi_sheet = writer.sheets["Planning_ingredients"]
+    pi_sheet.set_column(1,1,30)   
+    pi_sheet.autofilter('A1:H1')
+    
+    #Stock planning
+    stock_planning = var_result_dict["Stock_planning"]
+    if ing_recipes.index[2:].equals(stock_planning.index) and len(stock_planning.columns) < n_days+2: #insert nevonames and don't insert twice
+        stock_planning.insert(0, "nevonaam", ing_recipes.iloc[2:,0])
+        stock_planning.columns = ['nevonaam']+["Day "+str(d) for d in range(n_days+1)]
+    stock_planning = stock_planning.sort_values(["Day 5"], ascending=[False]) #presort
+    stock_planning.to_excel(writer, sheet_name="Stock_planning",startrow=0,startcol=0)
+    sp_sheet = writer.sheets["Stock_planning"]
+    sp_sheet.set_column(1,1,30)   
+    sp_sheet.autofilter('A1:H1')
+    
+    #Purchase planning
+    purchase_planning = var_result_dict["Purchase_planning"]
+    purchase_planning = purchase_planning.sort_values(['buy'], ascending=[False])
+    purchase_planning.to_excel(writer, sheet_name="Purchase_planning",startrow=0,startcol=0)
+    pp_sheet = writer.sheets["Purchase_planning"]
+    pp_sheet.set_column(2,2,30)
+    pp_sheet.set_column(3,3,20)
+    pp_sheet.set_column(5,5,30)
+    pp_sheet.set_column(6,11,10)
+    pp_sheet.set_row(0, None, bold_format) #Dit werkt niet, dan moet ik een custom pandas header toevoegen.
+    pp_sheet.autofilter('A1:K1')
+    
+    #Purchase costs
+    purchase_costs = var_result_dict["Purchase_costs"]
+    if ing_recipes.index[2:].equals(purchase_costs.index) and len(purchase_costs.columns) < 2: #insert nevonames and don't insert twice
+        purchase_costs.insert(0, "nevonaam", ing_recipes.iloc[2:,0])
+        purchase_costs.columns = ['nevonaam']+['Cost (€)']
+    purchase_costs = purchase_costs.sort_values(['Cost (€)'], ascending=[False]) #presort
+    purchase_costs.to_excel(writer, sheet_name="Purchase_costs",startrow=0,startcol=0)
+    pc_sheet = writer.sheets["Purchase_costs"]
+    pc_sheet.set_column(1,1,30) 
+    pc_sheet.set_column(2,2,15)
+    pc_sheet.autofilter('A1:C1')
+    
+    workbook.close()
+    print ('done')
+    
+if __name__ == '__main__': 
+    sol_toexcel(obj_result_dict, var_result_dict, times, optimize_over, n_days, n_persons, ing_recipes, dev)
