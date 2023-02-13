@@ -27,7 +27,8 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
     ingredients = ing_recipes.index.values[2:]
     packagesize = range(5001)
     #eventually create a unique index for package ingredients combinations.
-    nutrients = drv.index.values # later aanpassen naar alle nutrients
+    #nutrients = drv.index.values # later aanpassen naar alle nutrients
+    nutrients = fcd.columns.values[3:]
     
     # =============================================================================
     #     Decision variables
@@ -258,7 +259,7 @@ def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_ov
         for j in nutrients:
             result_dict[j]={}
             for d in days:
-                result_dict[j][d] = NIA[j,d].X
+                result_dict[j][d] = round(NIA[j,d].X, 2)
         NIAsol =pd.DataFrame(result_dict)
         NIAsol =NIAsol.transpose()
         return NIAsol

@@ -11,7 +11,7 @@ from datetime import date
 import xlsxwriter
 import pandas as pd
 
-def sol_toexcel(obj_result_dict, var_result_dict, times, obj, n_days, n_persons, ing_recipes, dev):
+def sol_toexcel(obj_result_dict, var_result_dict, times, obj, n_days, n_persons, ing_recipes, dev, drv):
     filename = str(date.today())+'_'+obj+'.xlsx'
     path = "Results/"+filename
     writer = pd.ExcelWriter(path,engine='xlsxwriter') #makes it possible to add pandas 
@@ -26,37 +26,45 @@ def sol_toexcel(obj_result_dict, var_result_dict, times, obj, n_days, n_persons,
     overview = workbook.add_worksheet("Overview") #manual sheet, without andas
     overview.set_column(0,0,30)
     
+    #unique run number
+    overview.write('A1', "Unique model run ID:")
+    with open('run_id.txt') as count_file:
+        run_id = int(count_file.read())
+    overview.write('B1', run_id)
+    with open('run_id.txt', 'w') as count_file:
+        count_file.write(str(run_id+1))
+    
     #date and time of model run/writing
-    overview.write('A1', "Date and time of model run:")
-    overview.write("B1", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    overview.write('A2', "Date and time of model run:")
+    overview.write("B2", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     
     #objective
-    overview.write('A2', "Objective:")
-    overview.write("B2", obj, bold_format)
+    overview.write('A3', "Objective:")
+    overview.write("B3", obj, bold_format)
     
     #number days and persons
-    overview.write("A4", "Number of days run for:")
-    overview.write("B4", n_days)
-    overview.write("A5", "Number of persons run for:")
-    overview.write("B5", n_persons)
-    overview.write("A6", "Deviation allowed from the DRVs")
-    overview.write("B6", dev, percent_format)
+    overview.write("A5", "Number of days run for:")
+    overview.write("B5", n_days)
+    overview.write("A6", "Number of persons run for:")
+    overview.write("B6", n_persons)
+    overview.write("A7", "Deviation allowed from the DRVs")
+    overview.write("B7", dev, percent_format)
     
     #objectives, highlight current objective
-    overview.write("A8", "Total", bold_format)
-    row = 8
+    overview.write("A9", "Total", bold_format)
+    row = 9
     col = 0
     for key in obj_result_dict:
         overview.write(row, col, key)
         if key == obj:
-            overview.write(row, col+1, round(obj_result_dict[key]), highlight_format)
+            overview.write(row, col+1, round(obj_result_dict[key],2), highlight_format)
         else:
-            overview.write(row, col+1, round(obj_result_dict[key]))
+            overview.write(row, col+1, round(obj_result_dict[key],2))
         row+=1
     
     overview.set_column(3,3,30)
-    overview.write("D8", "Per day per person", bold_format)
-    row = 8
+    overview.write("D9", "Per day per person", bold_format)
+    row = 9
     col = 3
     for key in obj_result_dict:
         overview.write(row, col, key)
@@ -67,13 +75,13 @@ def sol_toexcel(obj_result_dict, var_result_dict, times, obj, n_days, n_persons,
         row+=1
         
     #init time and total time
-    overview.write('A14', "Model initialization time:")
-    overview.write("B14", round(times["total_time"]))
-    overview.write('A15', "Model total time:")
-    overview.write("B15", round(times["init_time"]))
+    overview.write('A15', "Model initialization time:")
+    overview.write("B15", round(times["total_time"]))
+    overview.write('A16', "Model total time:")
+    overview.write("B16", round(times["init_time"]))
 
 
-    overview.write('A17', "Notes below are added manually:", bold_format)
+    overview.write('A18', "Notes below are added manually:", bold_format)
 
     # =============================================================================
     #     var sheets
@@ -100,6 +108,34 @@ def sol_toexcel(obj_result_dict, var_result_dict, times, obj, n_days, n_persons,
     NIA.to_excel(writer, sheet_name="NIA",startrow=0)
     NIAsheet = writer.sheets["NIA"]
     NIAsheet.set_column(0,0,20)
+    #highlight rows in DRV
+    j = 2 #starts at 1 because first row is column headers, and j is not zero indexed
+    for i in NIA.index.values:
+        if i in drv.index.values:
+            frange = 'B'+str(j)+':G'+str(j)
+            NIAsheet.conditional_format(frange, {'type': 'cell',
+                                       'criteria' : '>', 
+                                       'value' : -99999999999,
+                                       'format' : highlight_format})
+            #NIAsheet.set_row(j,None,highlight_format)
+        j+=1
+    
+    #NIA per person
+    NIApp = var_result_dict["NIA"]/n_persons
+    NIApp.columns = ["Day "+str(d) for d in range(n_days+1)]
+    NIApp.to_excel(writer, sheet_name="NIA_pp",startrow=0)
+    NIAppsheet = writer.sheets["NIA_pp"]
+    NIAppsheet.set_column(0,0,20)
+    #highlight rows in DRV -> Misschien DRV ernaast printen?
+    j = 2 #starts at 1 because first row is column headers, and j is not zero indexed
+    for i in NIApp.index.values:
+        if i in drv.index.values:
+            frange = 'B'+str(j)+':G'+str(j)
+            NIAppsheet.conditional_format(frange, {'type': 'cell',
+                                       'criteria' : '>', 
+                                       'value' : -99999999999,
+                                       'format' : highlight_format})
+        j+=1
     
     #Planning ingredients
     planning_ingredients = var_result_dict["Planning_ingredients"]
