@@ -13,12 +13,26 @@ import time
 from mpm_supporting_functions import rewrite_buy
 
 
-def menuplanning(n_days, n_persons, ing_recipes, ing_LCA, ing_packs, optimize_over, 
-                 fcd, drv, excep_codes, dev, name='menuplanning'): #let user decide with which variable to run this function
+def menuplanning(settings, imported_data, name='menuplanning'): #let user decide with which variable to run this function
     start_time = time.time()
     # Model
     m = gp.Model("menuplanning")
     
+    # =============================================================================
+    #     Unpacking inputs
+    # =============================================================================
+    n_days = settings["n_days"]
+    n_persons = settings["n_persons"]
+    dev = settings["dev"]
+    optimize_over = settings["optimize_over"]
+    
+    ing_recipes = imported_data["ing_recipes_hoofd"]
+    ing_LCA = imported_data["ing_LCA"]
+    ing_packs = imported_data["ing_packs"]
+    fcd = imported_data["fcd"]
+    drv = imported_data["drv"]
+    excep_codes = imported_data["excep_codes"]
+
     # =============================================================================
     #     Initializations of data
     # =============================================================================

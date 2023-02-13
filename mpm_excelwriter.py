@@ -11,8 +11,23 @@ from datetime import date
 import xlsxwriter
 import pandas as pd
 
-def sol_toexcel(obj_result_dict, var_result_dict, times, obj, n_days, n_persons, ing_recipes, dev, drv):
-    filename = str(date.today())+'_'+obj+'.xlsx'
+def sol_toexcel(settings, imported_data, obj_result_dict, var_result_dict, times):
+    # =============================================================================
+    #     Unpack data
+    # =============================================================================
+    n_days = settings["n_days"]
+    n_persons = settings["n_persons"]
+    dev = settings["dev"]
+    optimize_over = settings["optimize_over"]
+    
+    ing_recipes = imported_data["ing_recipes_full"]
+    drv = imported_data["drv"]
+    
+    
+    # =============================================================================
+    #     Initialisation
+    # =============================================================================
+    filename = str(date.today())+'_'+optimize_over+'.xlsx'
     path = "Results/"+filename
     writer = pd.ExcelWriter(path,engine='xlsxwriter') #makes it possible to add pandas 
     workbook = writer.book
@@ -20,6 +35,7 @@ def sol_toexcel(obj_result_dict, var_result_dict, times, obj, n_days, n_persons,
     bold_format = workbook.add_format({'bold':True, 'align':'left'})
     highlight_format = workbook.add_format({'bg_color':'#D8E4BC'})
     percent_format = workbook.add_format({'num_format':'0.0%'})
+    
     # =============================================================================
     #     overview page
     # =============================================================================
@@ -40,7 +56,7 @@ def sol_toexcel(obj_result_dict, var_result_dict, times, obj, n_days, n_persons,
     
     #objective
     overview.write('A3', "Objective:")
-    overview.write("B3", obj, bold_format)
+    overview.write("B3", optimize_over, bold_format)
     
     #number days and persons
     overview.write("A5", "Number of days run for:")
@@ -56,7 +72,7 @@ def sol_toexcel(obj_result_dict, var_result_dict, times, obj, n_days, n_persons,
     col = 0
     for key in obj_result_dict:
         overview.write(row, col, key)
-        if key == obj:
+        if key == optimize_over:
             overview.write(row, col+1, round(obj_result_dict[key],2), highlight_format)
         else:
             overview.write(row, col+1, round(obj_result_dict[key],2))
@@ -68,7 +84,7 @@ def sol_toexcel(obj_result_dict, var_result_dict, times, obj, n_days, n_persons,
     col = 3
     for key in obj_result_dict:
         overview.write(row, col, key)
-        if key == obj:
+        if key == optimize_over:
             overview.write(row, col+1, round(obj_result_dict[key]/(n_days*n_persons)), highlight_format)
         else:
             overview.write(row, col+1, round(obj_result_dict[key]/(n_days*n_persons)))
@@ -187,4 +203,4 @@ def sol_toexcel(obj_result_dict, var_result_dict, times, obj, n_days, n_persons,
     print ('done')
     
 if __name__ == '__main__': 
-    sol_toexcel(obj_result_dict, var_result_dict, times, optimize_over, n_days, n_persons, ing_recipes, dev)
+    sol_toexcel(settings, imported_data, obj_result_dict, var_result_dict, times)

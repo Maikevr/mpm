@@ -8,7 +8,7 @@ This code calls menuplanningmodel.
 """
 import pandas as pd
 import numpy as np
-from menuplanningmodel_build import menuplanning
+from mpm_build import menuplanning
 from mpm_excelwriter import sol_toexcel
 
 # ----------------------------------------------------------------------------
@@ -17,8 +17,11 @@ from mpm_excelwriter import sol_toexcel
 n_days = 5 # for how many days do you want to make a planning?
 n_persons = 4
 dev = 0.1 #allow for x% deviation of the DRVs
+optimize_over="Waste_grams" #Carbon_waste, Total_carbon, Total_cost, Waste_grams
 
-#settings = {"n_days":n_days;}
+settings = {"n_days":n_days, "n_persons": n_persons, "dev": dev, "optimize_over": optimize_over}
+
+
 # ----------------------------------------------------------------------------
 # Import files
 # ----------------------------------------------------------------------------
@@ -42,20 +45,19 @@ drv = drv.loc[["Eiwit (g)","Calcium (mg)","IJzer (mg)", "Zink (mg)", "RAE (Vit A
 
 excep_codes = nevo_exceptions[nevo_exceptions["Account_pack_size"]==0]
 
+imported_data = {"ing_recipes_hoofd": ing_recipes_hoofd, "ing_recipes_full": ing_recipes,
+                 "ing_LCA": ing_LCA, "ing_packs": ing_packs, "fcd": fcd, 
+                 "drv":drv, "excep_codes": excep_codes}
 
 # =============================================================================
 # Run model
 # =============================================================================
-optimize_over="Waste_grams" #Carbon_waste, Total_carbon, Total_cost, Waste_grams
-var_result_dict, obj_result_dict, times = menuplanning(n_days, n_persons, ing_recipes_hoofd, 
-                                                ing_LCA, ing_packs, optimize_over, fcd,
-                                                drv, excep_codes,dev)
-
+var_result_dict, obj_result_dict, times = menuplanning(settings, imported_data)
 
 # =============================================================================
 # Write results to excel
 # =============================================================================
-sol_toexcel(obj_result_dict, var_result_dict, times, optimize_over, n_days, n_persons, ing_recipes, dev, drv)
+sol_toexcel(settings, imported_data, obj_result_dict, var_result_dict, times)
 
 # =============================================================================
 # Store results locally
