@@ -28,7 +28,7 @@ settings = {"n_days":n_days, "n_persons": n_persons, "dev": dev, "optimize_over"
 ing_recipes = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\Recipe data\recipe_standardised_df.xlsx', sheet_name='Sheet1', index_col=0)
 fcd = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\Food Composition Database\FCD - Model input.xlsx', sheet_name='Sheet1', index_col=0)
 #moeder - drv = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\DRVs\DRVs - Model input.xlsx', sheet_name='Vrouw 31-39 jaar oud, gemiddeld', index_col=0)
-drv = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\DRVs\DRVs - Model input.xlsx', sheet_name='Modelgezin, gemiddeld', index_col=0)
+drv = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\DRVs\DRVs - Model input.xlsx', sheet_name='modelgezin_gemiddeld', index_col=0)
 ing_LCA = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\LCA data\20201111_LCA Food database_extrapolaties_milieudatabase_2020_V2.1.xlsx', sheet_name='LCA database inclusief extrapol', index_col=0)
 ing_packs = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\Package data\package_info_standardised_2023-01-18.xlsx', sheet_name='Sheet1', index_col=0)
 nevo_exceptions = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\Recipe data\NEVO_synonyms_exceptions.xlsx', sheet_name='Sheet1', index_col=0)
@@ -37,7 +37,7 @@ nevo_exceptions = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen Unive
 # Prepare data
 # =============================================================================
 ing_recipes_hoofd = ing_recipes.loc[:, ing_recipes.loc['mealmoment'] == 'hoofdgerecht'] #subset of dishes that are a main meal
-ing_recipes_hoofd = ing_recipes_hoofd.iloc[:,:] #small subset for tests
+#ing_recipes_hoofd = ing_recipes_hoofd.iloc[:,:] #small subset for tests
 
 drv = drv.replace("-",np.nan)
 drv = drv.loc[["Eiwit (g)","Calcium (mg)","IJzer (mg)", "Zink (mg)", "RAE (Vit A) (µg)",
