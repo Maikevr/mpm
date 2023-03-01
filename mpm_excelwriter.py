@@ -27,7 +27,9 @@ def sol_toexcel(settings, imported_data, obj_result_dict, var_result_dict, times
     # =============================================================================
     #     Initialisation
     # =============================================================================
-    filename = str(date.today())+'_'+optimize_over+'.xlsx'
+    with open('run_id.txt') as count_file:
+        run_id = int(count_file.read())
+    filename = str(run_id)+'_'+optimize_over+'_'+str(date.today())+'.xlsx'
     path = "Results/"+filename
     writer = pd.ExcelWriter(path,engine='xlsxwriter') #makes it possible to add pandas 
     workbook = writer.book
@@ -44,8 +46,6 @@ def sol_toexcel(settings, imported_data, obj_result_dict, var_result_dict, times
     
     #unique run number
     overview.write('A1', "Unique model run ID:")
-    with open('run_id.txt') as count_file:
-        run_id = int(count_file.read())
     overview.write('B1', run_id)
     with open('run_id.txt', 'w') as count_file:
         count_file.write(str(run_id+1))
@@ -85,16 +85,16 @@ def sol_toexcel(settings, imported_data, obj_result_dict, var_result_dict, times
     for key in obj_result_dict:
         overview.write(row, col, key)
         if key == optimize_over:
-            overview.write(row, col+1, round(obj_result_dict[key]/(n_days*n_persons)), highlight_format)
+            overview.write(row, col+1, round(obj_result_dict[key]/(n_days*n_persons), 2), highlight_format)
         else:
-            overview.write(row, col+1, round(obj_result_dict[key]/(n_days*n_persons)))
+            overview.write(row, col+1, round(obj_result_dict[key]/(n_days*n_persons),2))
         row+=1
         
     #init time and total time
     overview.write('A15', "Model initialization time:")
-    overview.write("B15", round(times["total_time"]))
+    overview.write("B15", round(times["init_time"]))
     overview.write('A16', "Model total time:")
-    overview.write("B16", round(times["init_time"]))
+    overview.write("B16", round(times["total_time"]))
 
 
     overview.write('A18', "Notes below are added manually:", bold_format)

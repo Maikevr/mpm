@@ -90,4 +90,37 @@ perish_set = [i for i in perishables["nevocode"].unique()]
 stables = ing_packs.loc[ing_packs["Shelf_stable"]==1]
 stable_set = [i for i in stables["nevocode"].unique()]
 
-        
+
+# =============================================================================
+# Try to add portion size constraints by using bigM constraints.     
+# =============================================================================
+"""Didn't work because it runs out of memory. Must be a faster way""""
+    # 2.4 constraint to compute ingredients used for cooking per day  
+    # 2.4.1 constraint to make sure that ingredients used for a day is substracted from ingredients on stock
+    for d in range(len(days)):
+        if d != 0:
+            for i in ingredients: #kan dit mooier dan met 3 loops?
+                #used = (n_persons+ps[str(d)])*gp.quicksum(ing_recipes.loc[i,r]*y[r,str(d)] for r in recipes)
+                #m.addConstr(used == used*ps[str(d)])
+                
+                #FIXME
+                for r in recipes:
+                    if np.isnan(ing_recipes.loc[i,r]):
+                        a = 0
+                    else:
+                        a = ing_recipes.loc[i,r]
+                    m.addConstr(usedi[r, str(d), i] == (n_persons+ps[str(d)])*a)
+                    m.addConstr(usedi[r, str(d), i] <= y[r,str(d)]*2000)
+                used = gp.quicksum(usedi[r, str(d), i] for r in recipes)
+                #FIXME
+                
+                m.addConstr(x[i,str(d)] == used, "ingredients used for cooking per day")
+                if i in excep_codes.index.values: #to make sure that for e.g. cooked couscous not too much raw couscous is bought
+                    conversion = excep_codes.loc[i,"Conversion_factor"]
+                    m.addConstr(stock[i,str(d)] == stock[i,str(d-1)]-used/conversion, "stock equation (exceptions)")
+                else:
+                    m.addConstr(stock[i,str(d)] == stock[i,str(d-1)]-used, "stock equation")
+                    
+                
+"""Also tried this: becomes quadratic though, and takes a long time to solve"""
+used = (n_persons+ps[str(d)])*gp.quicksum(ing_recipes.loc[i,r]*y[r,str(d)] for r in recipes)

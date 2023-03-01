@@ -39,7 +39,7 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     days = [str(x) for x in range(0, n_days+1)]
     recipes = ing_recipes.columns[1:]
     ingredients = ing_recipes.index.values[2:]
-    packagesize = range(5001)
+    packagesize = ing_packs["Package (g)"].unique()
     #eventually create a unique index for package ingredients combinations.
     #nutrients = drv.index.values # later aanpassen naar alle nutrients
     nutrients = fcd.columns.values[3:]
@@ -49,6 +49,7 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     # =============================================================================
     y = m.addVars(recipes, days, vtype=GRB.BINARY,name="y") #if recipe r is planned on day d or not
     buy = m.addVars(ingredients,packagesize, vtype=GRB.INTEGER,name="buy") #number of packages of size s to buy for ingerdients i (Only on )
+    ps = m.addVars(recipes, days, vtype=GRB.INTEGER,  name="portion_size")
 
     #supporting variables
     x = m.addVars(ingredients, days, vtype=GRB.CONTINUOUS,name="x") #grams of ingredients i planned on day d
@@ -79,14 +80,21 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     for d in range(len(days)):
         if d != 0:
             for i in ingredients: #kan dit mooier dan met 3 loops?
-                used = n_persons*gp.quicksum(ing_recipes.loc[i,r]*y[r,str(d)] for r in recipes)
+                
+                #used = (n_persons)*gp.quicksum(ing_recipes.loc[i,r]*y[r,str(d)] for r in recipes)
+                #used = (n_persons+ps[str(d)])*gp.quicksum(ing_recipes.loc[i,r]*y[r,str(d)] for r in recipes)
+                used = gp.quicksum(ing_recipes.loc[i,r]*ps[r,str(d)] for r in recipes)
+                #m.addConstr(used == used*ps[str(d)])
+
                 m.addConstr(x[i,str(d)] == used, "ingredients used for cooking per day")
                 if i in excep_codes.index.values: #to make sure that for e.g. cooked couscous not too much raw couscous is bought
                     conversion = excep_codes.loc[i,"Conversion_factor"]
                     m.addConstr(stock[i,str(d)] == stock[i,str(d-1)]-used/conversion, "stock equation (exceptions)")
                 else:
                     m.addConstr(stock[i,str(d)] == stock[i,str(d-1)]-used, "stock equation")
-       
+            for r in recipes:
+                m.addConstr(ps[r,str(d)] <= y[r,str(d)]*(n_persons+1))
+                
     # 2.4.2 constraint to compute total cost of the groceries per ingredient, change later to allow specific choices per package!!
     for i in ingredients:
         #Perishable items
@@ -145,6 +153,7 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     for j in nutrients:
         for d in days[1:]:
             m.addConstr(NIAslack[j,d] == 0, "don't allow slack")
+
     #==========================================================================
     #     Objective funcition    
     # =============================================================================
@@ -287,6 +296,17 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
         NIAslacksol =pd.DataFrame(result_dict)
         NIAslacksol =NIAslacksol.transpose()
         return NIAslacksol
+    
+    def dfSolution_ps():
+        result_dict = {}
+        for r in recipes:
+            result_dict[r]={}
+            for d in days:
+                result_dict[r][d] = ps[r,d].X
+        portion_size =pd.DataFrame(result_dict)
+        portion_size =portion_size.transpose()
+        return portion_size
+
 
     
     #This block of code helps if it is not working
@@ -304,10 +324,12 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     purchase_costs = dfSolution_purchasecost()
     NIAsol = dfSolution_NIA()
     NIAslacksol = dfSolution_NIAslack()
+    portion_size = dfSolution_ps()
     
     var_result_dict = {"Planning_recipes":planning_recipes,"Planning_ingredients":planning_ingredients, 
                        "Stock_planning":stock_planning, 'Purchase_planning':purchase_planning, 
-                       "Purchase_costs":purchase_costs, 'NIA':NIAsol, "NIAslack":NIAslacksol}
+                       "Purchase_costs":purchase_costs, 'NIA':NIAsol, "NIAslack":NIAslacksol,
+                       "Portion_size": portion_size}
     
     #get the values of the LinExpr used
     tot_carbon = total_carbon.getValue()
