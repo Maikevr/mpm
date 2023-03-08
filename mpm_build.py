@@ -17,6 +17,10 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     start_time = time.time()
     # Model
     m = gp.Model("menuplanning")
+    m.setParam('MIPFocus',1)
+    m.setParam('Heuristics', 0.5)
+    m.setParam('TimeLimit', 600)
+    m.setParam('MIPGap', 0.25)
     
     # =============================================================================
     #     Unpacking inputs
@@ -49,7 +53,10 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     # =============================================================================
     y = m.addVars(recipes, days, vtype=GRB.BINARY,name="y") #if recipe r is planned on day d or not
     buy = m.addVars(ingredients,packagesize, vtype=GRB.INTEGER,name="buy") #number of packages of size s to buy for ingerdients i (Only on )
-
+    #z = m.addVars(ingredients,packagesize, vtype=GRB.INTEGER,name="z") #number of packages of size s to buy for ingerdients i (Only on )
+    #yb = m.addVars(recipes, days, vtype=GRB.BINARY,name="yb") #if recipe r is planned on day d or not
+    #
+    
     #supporting variables
     x = m.addVars(ingredients, days, vtype=GRB.CONTINUOUS,name="x") #grams of ingredients i planned on day d
     stock = m.addVars(ingredients, days, vtype=GRB.CONTINUOUS,name="stock") #stock of ingredients i on day d
@@ -61,6 +68,15 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     # =============================================================================
     #     Constraints
     # =============================================================================
+    
+    # Relax and fit: y variables
+    #step 1: find for first two days
+    #for d in days[1:3]:
+        #m.addConstrs(y[r,d]-yb[r,d] == 0 for r in recipes)
+    #step 2: fix the first two days
+    m.addConstr(y[29,'1']==1)
+    m.addConstr(y[477,'2']==1)
+    
     # 2.1 One recipe planned per day
     for d in days[1:]: #for all days except the first (purchase day)
         m.addConstr((gp.quicksum(y[r,d] for r in recipes) == 1), "One recipe per day")
@@ -73,6 +89,11 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     for i in ingredients:
         nevoset = ing_packs.loc[ing_packs['nevocode'] == i]
         m.addConstr(stock[i,'0']== (gp.quicksum(buy[i,p]*p for p in nevoset["Package (g)"])), "buy packing size for recipe") #Ik verwacht dat p nu in grammen is
+    
+    # 2.3 Constraints to allow (very small) deviation to buy[i,p]
+        # for p in nevoset["Package (g)"]:
+        #     m.addConstr(buy[i,p] <= z[i,p] +0.01)
+        #     m.addConstr(buy[i,p] >= z[i,p] -0.01)
     
     # 2.4 constraint to compute ingredients used for cooking per day  
     # 2.4.1 constraint to make sure that ingredients used for a day is substracted from ingredients on stock

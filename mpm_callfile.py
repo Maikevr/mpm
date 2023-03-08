@@ -10,6 +10,9 @@ import pandas as pd
 import numpy as np
 from mpm_build import menuplanning
 from mpm_excelwriter import sol_toexcel
+import sys
+sys.path.insert(0, r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\DRVs')
+from preprocessing_ps import preprocessing_ps
 
 # ----------------------------------------------------------------------------
 # Initialize the problem data
@@ -18,6 +21,7 @@ n_days = 5 # for how many days do you want to make a planning?
 n_persons = 4
 dev = 0.1 #allow for x% deviation of the DRVs
 optimize_over="Waste_grams" #Carbon_waste, Total_carbon, Total_cost, Waste_grams
+drv_settings="modelgezin_gemiddeld"
 
 settings = {"n_days":n_days, "n_persons": n_persons, "dev": dev, "optimize_over": optimize_over}
 
@@ -26,6 +30,7 @@ settings = {"n_days":n_days, "n_persons": n_persons, "dev": dev, "optimize_over"
 # Import files
 # ----------------------------------------------------------------------------
 ing_recipes = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\Recipe data\recipe_standardised_df.xlsx', sheet_name='Sheet1', index_col=0)
+ing_recipes_ps = pd.read_pickle(r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\DRVs\ing_recipes_ps.pkl')
 fcd = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\Food Composition Database\FCD - Model input.xlsx', sheet_name='Sheet1', index_col=0)
 #moeder - drv = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\DRVs\DRVs - Model input.xlsx', sheet_name='Vrouw 31-39 jaar oud, gemiddeld', index_col=0)
 drv = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\DRVs\DRVs - Model input.xlsx', sheet_name='modelgezin_gemiddeld', index_col=0)
@@ -36,8 +41,11 @@ nevo_exceptions = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen Unive
 # =============================================================================
 # Prepare data
 # =============================================================================
-ing_recipes_hoofd = ing_recipes.loc[:, ing_recipes.loc['mealmoment'] == 'hoofdgerecht'] #subset of dishes that are a main meal
-#ing_recipes_hoofd = ing_recipes_hoofd.iloc[:,:] #small subset for tests
+
+#The following line uses a custom adjusted portion size file as input!!
+#ing_recipes_ps = preprocessing_ps(ing_recipes, fcd, drv, drv_settings, n_persons)
+ing_recipes_hoofd = ing_recipes_ps.loc[:, ing_recipes.loc['mealmoment'] == 'hoofdgerecht'] #subset of dishes that are a main meal
+
 
 drv = drv.replace("-",np.nan)
 drv = drv.loc[["Eiwit (g)","Calcium (mg)","IJzer (mg)", "Zink (mg)", "RAE (Vit A) (µg)",
