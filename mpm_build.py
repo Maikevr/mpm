@@ -20,7 +20,7 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     m.setParam('MIPFocus',1)
     m.setParam('Heuristics', 0.5)
     m.setParam('TimeLimit', 600)
-    m.setParam('MIPGap', 0.25)
+    #m.setParam('MIPGap', 0.25)
     
     # =============================================================================
     #     Unpacking inputs
@@ -43,7 +43,7 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     days = [str(x) for x in range(0, n_days+1)]
     recipes = ing_recipes.columns[1:]
     ingredients = ing_recipes.index.values[2:]
-    packagesize = ing_packs["Package (g)"].unique()
+    packagesize = ing_packs["pack_net_gr"].unique()
     #eventually create a unique index for package ingredients combinations.
     #nutrients = drv.index.values # later aanpassen naar alle nutrients
     nutrients = fcd.columns.values[3:]
@@ -53,11 +53,9 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     # =============================================================================
     y = m.addVars(recipes, days, vtype=GRB.BINARY,name="y") #if recipe r is planned on day d or not
     buy = m.addVars(ingredients,packagesize, vtype=GRB.INTEGER,name="buy") #number of packages of size s to buy for ingerdients i (Only on )
-    #z = m.addVars(ingredients,packagesize, vtype=GRB.INTEGER,name="z") #number of packages of size s to buy for ingerdients i (Only on )
-    #yb = m.addVars(recipes, days, vtype=GRB.BINARY,name="yb") #if recipe r is planned on day d or not
-    #
     
     #supporting variables
+    b = m.addVars(ingredients,days, vtype=GRB.BINARY)
     x = m.addVars(ingredients, days, vtype=GRB.CONTINUOUS,name="x") #grams of ingredients i planned on day d
     stock = m.addVars(ingredients, days, vtype=GRB.CONTINUOUS,name="stock") #stock of ingredients i on day d
     #ik wil alleen een buy i,p aanmaken als deze bestaat. dus voor elke i zijn er maar een paar p's
@@ -68,14 +66,6 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     # =============================================================================
     #     Constraints
     # =============================================================================
-    
-    # Relax and fit: y variables
-    #step 1: find for first two days
-    #for d in days[1:3]:
-        #m.addConstrs(y[r,d]-yb[r,d] == 0 for r in recipes)
-    #step 2: fix the first two days
-    m.addConstr(y[29,'1']==1)
-    m.addConstr(y[477,'2']==1)
     
     # 2.1 One recipe planned per day
     for d in days[1:]: #for all days except the first (purchase day)
@@ -88,7 +78,7 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     # 2.3 Constraint to add packages bought to stock
     for i in ingredients:
         nevoset = ing_packs.loc[ing_packs['nevocode'] == i]
-        m.addConstr(stock[i,'0']== (gp.quicksum(buy[i,p]*p for p in nevoset["Package (g)"])), "buy packing size for recipe") #Ik verwacht dat p nu in grammen is
+        m.addConstr(stock[i,'0']== (gp.quicksum(buy[i,p]*p for p in nevoset["pack_net_gr"])), "buy packing size for recipe") #Ik verwacht dat p nu in grammen is
     
     # 2.3 Constraints to allow (very small) deviation to buy[i,p]
         # for p in nevoset["Package (g)"]:
@@ -100,13 +90,17 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     for d in range(len(days)):
         if d != 0:
             for i in ingredients: #kan dit mooier dan met 3 loops?                
-                used = n_persons*gp.quicksum(ing_recipes.loc[i,r]*y[r,str(d)] for r in recipes)
-                m.addConstr(x[i,str(d)] == used, "ingredients used for cooking per day")
+                planned = n_persons*gp.quicksum(ing_recipes.loc[i,r]*y[r,str(d)] for r in recipes)
+                m.addConstr(planned >= 0.01*b[i,str(d)]) #laat gepland eten in recepten 5 gram devieeren
+                m.addConstr(x[i,str(d)] <= planned+5*b[i,str(d)])
+                m.addConstr(x[i,str(d)] >= planned-5*b[i,str(d)])
+                
+                #m.addConstr(x[i,str(d)] == used, "ingredients used for cooking per day")
                 if i in excep_codes.index.values: #to make sure that for e.g. cooked couscous not too much raw couscous is bought
                     conversion = excep_codes.loc[i,"Conversion_factor"]
-                    m.addConstr(stock[i,str(d)] == stock[i,str(d-1)]-used/conversion, "stock equation (exceptions)")
+                    m.addConstr(stock[i,str(d)] == stock[i,str(d-1)]-x[i,str(d)]/conversion, "stock equation (exceptions)")
                 else:
-                    m.addConstr(stock[i,str(d)] == stock[i,str(d-1)]-used, "stock equation")
+                    m.addConstr(stock[i,str(d)] == stock[i,str(d-1)]-x[i,str(d)], "stock equation")
                 
     # 2.4.2 constraint to compute total cost of the groceries per ingredient, change later to allow specific choices per package!!
     for i in ingredients:
@@ -115,16 +109,16 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
         nevoset_perishable = perishables.loc[ing_packs["nevocode"]==i]
         if len(nevoset_perishable) != 0:
             m.addConstr(purchasecost_ing[i] == (gp.quicksum(buy[i,p]*eur for p, eur in 
-                        zip(nevoset_perishable["Package (g)"],nevoset_perishable["Package price (€/unit)"]))), 
+                        zip(nevoset_perishable["pack_net_gr"],nevoset_perishable["price_unit"]))), 
                         "purchase cost of package sizes bought per ingredient, perishable items")
         #Shelf stable items
         stables = ing_packs.loc[ing_packs["Shelf_stable"]==1]
         nevoset_stables = stables.loc[ing_packs["nevocode"]==i]
         if len(nevoset_stables) != 0:
-            cheapest = nevoset_stables[["Price (€/kg)"]].idxmin().item()
-            packsize = int(nevoset_stables.loc[cheapest,"Package (g)"].item()) #size of the cheapest product
+            cheapest = nevoset_stables[["price_net_kg"]].idxmin().item()
+            packsize = int(nevoset_stables.loc[cheapest,"pack_net_gr"].item()) #size of the cheapest product
             #Don't buy packages that are not used
-            for p in stables["Package (g)"]:
+            for p in stables["pack_net_gr"]:
                 if p != packsize:
                     m.addConstr(buy[i,p]==0,"Don't buy the more expensive packages")         
             #Don't buy more packages than necessary
@@ -134,10 +128,10 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
             if i in excep_codes.index.values: #to make sure that for e.g. cooked couscous not too much raw couscous is bought
                 conversion = excep_codes.loc[i,"Conversion_factor"]   
                 m.addConstr(purchasecost_ing[i] == (gp.quicksum(x[i,d]/conversion for d in days[1:])
-                                                    /1000*min(nevoset_stables["Price (€/kg)"])),"Purchase cost usage of stable items (exceptions)")
+                                                    /1000*min(nevoset_stables["price_net_kg"])),"Purchase cost usage of stable items (exceptions)")
             else:
                 m.addConstr(purchasecost_ing[i] == (gp.quicksum(x[i,d] for d in days[1:])
-                                                /1000*min(nevoset_stables["Price (€/kg)"])),"Purchase cost usage of stable items")   
+                                                /1000*min(nevoset_stables["price_net_kg"])),"Purchase cost usage of stable items")   
 
     # 2.5 Constraint to add DRVs        
     # compute NIA
@@ -185,10 +179,14 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     
     total_carbon = tot_carbon_perishable+ tot_carbon_stable
     
+    # 2. Minimize land use
     
     # 2. Minimize waste in grams
     last_day = days[-1]
     waste_ingrams = gp.quicksum(stock[i,last_day] for i in perish_set)
+    
+    #Stepwise reduction waste while optimizing over carbon
+    m.addConstr(waste_ingrams <= 140)
     
     
     # 3. Minimize waste in carbon footprint 
@@ -263,7 +261,7 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
         for i in ingredients:
             result_dict[i]={}
             nevoset = ing_packs.loc[ing_packs['nevocode'] == i]
-            for p in nevoset["Package (g)"]:
+            for p in nevoset["pack_net_gr"]:
                 result_dict[i][p]=buy[i,p].X
         purchase_planning =pd.DataFrame(result_dict)
         purchase_planning =purchase_planning.transpose()
@@ -272,7 +270,7 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     def dfSolution_purchasecost():
         result_dict = {}
         for i in ingredients:
-            result_dict[i]=purchasecost_ing[i].X
+            result_dict[i]= round(purchasecost_ing[i].X, 2)
         #print(result_dict)
         purchase_costs =pd.DataFrame(result_dict,index=['cost in euros'])
         purchase_costs =purchase_costs.transpose()

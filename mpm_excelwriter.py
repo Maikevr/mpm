@@ -30,7 +30,7 @@ def sol_toexcel(settings, imported_data, obj_result_dict, var_result_dict, times
     with open('run_id.txt') as count_file:
         run_id = int(count_file.read())
     filename = str(run_id)+'_'+optimize_over+'_'+str(date.today())+'.xlsx'
-    path = "Results/"+filename
+    path = "Model results outputs/"+filename
     writer = pd.ExcelWriter(path,engine='xlsxwriter') #makes it possible to add pandas 
     workbook = writer.book
     
@@ -169,7 +169,7 @@ def sol_toexcel(settings, imported_data, obj_result_dict, var_result_dict, times
     if ing_recipes.index[2:].equals(stock_planning.index) and len(stock_planning.columns) < n_days+2: #insert nevonames and don't insert twice
         stock_planning.insert(0, "nevonaam", ing_recipes.iloc[2:,0])
         stock_planning.columns = ['nevonaam']+["Day "+str(d) for d in range(n_days+1)]
-    stock_planning = stock_planning.sort_values(["Day 5"], ascending=[False]) #presort
+    stock_planning = stock_planning.sort_values(["Day "+str(n_days)], ascending=[False]) #presort
     stock_planning.to_excel(writer, sheet_name="Stock_planning",startrow=0,startcol=0)
     sp_sheet = writer.sheets["Stock_planning"]
     sp_sheet.set_column(1,1,30)   

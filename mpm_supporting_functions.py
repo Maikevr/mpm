@@ -16,7 +16,7 @@ def rewrite_buy(ing_packs, purchase_planning):
     for i,j in purchase_planning_ing_packs.iterrows():
     #for i,j in zip(purchase_planning_ing_packs.nevocode, purchase_planning_ing_packs["Package (g)"]):
         nevo = purchase_planning_ing_packs.loc[i,"nevocode"]
-        pack = purchase_planning_ing_packs.loc[i,"Package (g)"]
+        pack = purchase_planning_ing_packs.loc[i,"pack_net_gr"]
         amount = purchase_planning.loc[nevo,pack]
         groceries += [abs(amount)]
     purchase_planning_ing_packs["buy"]=groceries
