@@ -91,13 +91,13 @@ def sol_toexcel(settings, imported_data, obj_result_dict, var_result_dict, times
         row+=1
         
     #init time and total time
-    overview.write('A15', "Model initialization time:")
-    overview.write("B15", round(times["init_time"]))
-    overview.write('A16', "Model total time:")
-    overview.write("B16", round(times["total_time"]))
+    overview.write('A16', "Model initialization time:")
+    overview.write("B16", round(times["init_time"]))
+    overview.write('A17', "Model total time:")
+    overview.write("B17", round(times["total_time"]))
 
 
-    overview.write('A18', "Notes below are added manually:", bold_format)
+    overview.write('A19', "Notes below are added manually:", bold_format)
 
     # =============================================================================
     #     var sheets

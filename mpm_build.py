@@ -180,6 +180,13 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     total_carbon = tot_carbon_perishable+ tot_carbon_stable
     
     # 2. Minimize land use
+    tot_landuse_perishable = gp.quicksum(stock[i,"0"]*ing_LCA['LU_m2a_per_kg'][i] 
+                                        for i in perish_set)
+    
+    tot_landuse_stable = gp.quicksum(x[i,d]*ing_LCA['LU_m2a_per_kg'][i] 
+                                    for i in stable_set for d in days[1:])
+    
+    total_landuse = tot_landuse_perishable+ tot_landuse_stable
     
     # 2. Minimize waste in grams
     last_day = days[-1]
@@ -200,8 +207,8 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     #     Run the model
     # =============================================================================
     
-    tiebreaker = 0.000001*total_carbon+0.000001*waste_ingrams+0.000001*carbon_waste+0.0001*total_cost 
-    + 0.00001*gp.quicksum(NIAslack[j,d] for j in nutrients for d in days[1:]) 
+    tiebreaker = 0.000001*total_carbon+0.000001*total_landuse+0.000001*waste_ingrams
+    +0.000001*carbon_waste+0.0001*total_cost + 0.00001*gp.quicksum(NIAslack[j,d] for j in nutrients for d in days[1:]) 
     
     if optimize_over == 'Total_carbon':
          m.setObjective(total_carbon+tiebreaker, GRB.MINIMIZE)     #optimize over total_carbon or waste_ingrams or carbon waste
@@ -331,11 +338,12 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     
     #get the values of the LinExpr used
     tot_carbon = total_carbon.getValue()
+    tot_landuse = total_landuse.getValue()
     wast_ingrams= waste_ingrams.getValue()
     carbon_waste = carbon_waste.getValue()
     tot_cost = total_cost.getValue()
     
-    obj_result_dict = {"Total_carbon":tot_carbon ,"Waste_grams":wast_ingrams,"Carbon_waste": carbon_waste, "Total_cost":tot_cost}
+    obj_result_dict = {"Total_carbon":tot_carbon,"Total_landuse":tot_landuse,"Waste_grams":wast_ingrams,"Carbon_waste": carbon_waste, "Total_cost":tot_cost}
     
     objectivevalue = m.ObjVal
     
