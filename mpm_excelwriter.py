@@ -20,7 +20,7 @@ def sol_toexcel(settings, imported_data, obj_result_dict, var_result_dict, times
     dev = settings["dev"]
     optimize_over = settings["optimize_over"]
     
-    ing_recipes = imported_data["ing_recipes_full"]
+    ing_recipes = imported_data["ing_recipes_hoofd"]
     drv = imported_data["drv"]
     
     

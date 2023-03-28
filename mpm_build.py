@@ -29,6 +29,7 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     n_persons = settings["n_persons"]
     dev = settings["dev"]
     optimize_over = settings["optimize_over"]
+    tvar1 = settings["tvar1"] #In case a test a run
     
     ing_recipes = imported_data["ing_recipes_hoofd"]
     ing_LCA = imported_data["ing_LCA"]
@@ -80,21 +81,16 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
         nevoset = ing_packs.loc[ing_packs['nevocode'] == i]
         m.addConstr(stock[i,'0']== (gp.quicksum(buy[i,p]*p for p in nevoset["pack_net_gr"])), "buy packing size for recipe") #Ik verwacht dat p nu in grammen is
     
-    # 2.3 Constraints to allow (very small) deviation to buy[i,p]
-        # for p in nevoset["Package (g)"]:
-        #     m.addConstr(buy[i,p] <= z[i,p] +0.01)
-        #     m.addConstr(buy[i,p] >= z[i,p] -0.01)
-    
-    # 2.4 constraint to compute ingredients used for cooking per day  
-    # 2.4.1 constraint to make sure that ingredients used for a day is substracted from ingredients on stock
+    # 2.4.1 constraint to compute ingredients used for cooking per day  
     for d in range(len(days)):
         if d != 0:
             for i in ingredients: #kan dit mooier dan met 3 loops?                
                 planned = n_persons*gp.quicksum(ing_recipes.loc[i,r]*y[r,str(d)] for r in recipes)
                 m.addConstr(planned >= 0.01*b[i,str(d)]) #laat gepland eten in recepten 5 gram devieeren
-                m.addConstr(x[i,str(d)] <= planned+5*b[i,str(d)])
-                m.addConstr(x[i,str(d)] >= planned-5*b[i,str(d)])
+                m.addConstr(x[i,str(d)] <= planned+5*b[i,str(d)]) #b is help variable
+                m.addConstr(x[i,str(d)] >= planned-5*b[i,str(d)]) #misschien 5 npers maken?
                 
+    # 2.4.2 constraint to make sure that ingredients used for a day is substracted from ingredients on stock       
                 #m.addConstr(x[i,str(d)] == used, "ingredients used for cooking per day")
                 if i in excep_codes.index.values: #to make sure that for e.g. cooked couscous not too much raw couscous is bought
                     conversion = excep_codes.loc[i,"Conversion_factor"]
@@ -102,7 +98,7 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
                 else:
                     m.addConstr(stock[i,str(d)] == stock[i,str(d-1)]-x[i,str(d)], "stock equation")
                 
-    # 2.4.2 constraint to compute total cost of the groceries per ingredient, change later to allow specific choices per package!!
+    # 2.5 constraint to compute total cost of the groceries per ingredient, change later to allow specific choices per package!!
     for i in ingredients:
         #Perishable items
         perishables = ing_packs.loc[ing_packs["Shelf_stable"]==0]
@@ -133,13 +129,13 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
                 m.addConstr(purchasecost_ing[i] == (gp.quicksum(x[i,d] for d in days[1:])
                                                 /1000*min(nevoset_stables["price_net_kg"])),"Purchase cost usage of stable items")   
 
-    # 2.5 Constraint to add DRVs        
+    # 2.6 Constraint to add DRVs        
     # compute NIA
     for d in days:
          for j in nutrients:
              m.addConstr(NIA[j,d] == gp.quicksum(x[i,d]*fcd.loc[i,j]/100 for i in ingredients),"Compute nutrient intake")
     
-    # 2.5.1 constraint for the weekly nutrients
+    # 2.6.1 constraint for the weekly nutrients
     for j in nutrients:
         if j in drv.index.values and drv.loc[j, "Daily or weekly nutrient"] == "weekly":
             m.addConstr(gp.quicksum(NIA[j,d]+NIAslack[j,d] for d in days[1:]) 
@@ -148,7 +144,7 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
                 m.addConstr(gp.quicksum(NIA[j,d]-NIAslack[j,d] for d in days[1:]) 
                             <= drv.loc[j,"Bovengrens"]*n_persons*n_days*(1+dev), "Weekly nutrient constraint upperbound")
     
-    # 2.5.2 constraint for daily nutrient
+    # 2.6.2 constraint for daily nutrient
     for j in nutrients:
         for d in days[1:]:
             if j in drv.index.values and drv.loc[j, "Daily or weekly nutrient"] == "daily":
@@ -156,7 +152,7 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
                 if not np.isnan(drv.loc[j,"Bovengrens"]):
                     m.addConstr(NIA[j,d]-NIAslack[j,d] <= drv.loc[j,"Bovengrens"]*n_persons*(1+dev), "Daily nutrient constraint upperbound")
 
-    # 2.5.3 enable this code to don't allow slack
+    # 2.6.3 enable this code to don't allow slack
     for j in nutrients:
         for d in days[1:]:
             m.addConstr(NIAslack[j,d] == 0, "don't allow slack")
@@ -180,10 +176,10 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     total_carbon = tot_carbon_perishable+ tot_carbon_stable
     
     # 2. Minimize land use
-    tot_landuse_perishable = gp.quicksum(stock[i,"0"]*ing_LCA['LU_m2a_per_kg'][i] 
+    tot_landuse_perishable = gp.quicksum(stock[i,"0"]/1000*ing_LCA['LU_m2a_per_kg'][i] 
                                         for i in perish_set)
     
-    tot_landuse_stable = gp.quicksum(x[i,d]*ing_LCA['LU_m2a_per_kg'][i] 
+    tot_landuse_stable = gp.quicksum(x[i,d]/1000*ing_LCA['LU_m2a_per_kg'][i] 
                                     for i in stable_set for d in days[1:])
     
     total_landuse = tot_landuse_perishable+ tot_landuse_stable
@@ -192,9 +188,6 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     last_day = days[-1]
     waste_ingrams = gp.quicksum(stock[i,last_day] for i in perish_set)
     
-    #Stepwise reduction waste while optimizing over carbon
-    m.addConstr(waste_ingrams <= 140)
-    
     
     # 3. Minimize waste in carbon footprint 
     carbon_waste = gp.quicksum(stock[i,last_day]*ing_LCA['GHGE_kg_CO2eq_per_kg'][i] for i in perish_set) #computed by computing the environmental impact of the ingredients bought on day 1
@@ -202,6 +195,11 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
 
     # 4. Minimize total cost of diet
     total_cost = gp.quicksum(purchasecost_ing[i] for i in ingredients)
+    
+    #TODO
+    """EXPERIMENT CONSTRAINTS"""
+    #m.addConstr(waste_ingrams <= tvar1) #Stepwise reduction waste while optimizing over carbon
+    #m.addConstrs(y[r,d] == 0 for d in days[1:] for r in [342, 1554, 1438, 1377, 1625])
     
     # =============================================================================
     #     Run the model
