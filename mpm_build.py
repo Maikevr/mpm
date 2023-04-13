@@ -19,7 +19,7 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     m = gp.Model("menuplanning")
     m.setParam('MIPFocus',1)
     m.setParam('Heuristics', 0.5)
-    m.setParam('TimeLimit', 600)
+    m.setParam('TimeLimit', 900) #TODO
     #m.setParam('MIPGap', 0.25)
     
     # =============================================================================
@@ -199,11 +199,13 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     #TODO
     """EXPERIMENT CONSTRAINTS"""
     #m.addConstr(waste_ingrams <= tvar1) #Stepwise reduction waste while optimizing over carbon
+    #m.addConstr(total_carbon <= tvar1) #Stepwise reduction carbon while optimizing over waste
     #m.addConstrs(y[r,d] == 0 for d in days[1:] for r in [342, 1554, 1438, 1377, 1625])
     
     # =============================================================================
     #     Run the model
     # =============================================================================
+    #tiebreaker = 0 # for tests
     
     tiebreaker = 0.000001*total_carbon+0.000001*total_landuse+0.000001*waste_ingrams
     +0.000001*carbon_waste+0.0001*total_cost + 0.00001*gp.quicksum(NIAslack[j,d] for j in nutrients for d in days[1:]) 
@@ -216,6 +218,8 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
         m.setObjective(carbon_waste+tiebreaker, GRB.MINIMIZE)
     elif optimize_over =='Total_cost':
         m.setObjective(total_cost+tiebreaker, GRB.MINIMIZE)
+    elif optimize_over =='Total_landuse':
+        m.setObjective(total_landuse+tiebreaker, GRB.MINIMIZE)
         
     init_time = time.time()
     print("---Initialisation time %s seconds ---" % (init_time - start_time))

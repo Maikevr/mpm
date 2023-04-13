@@ -107,13 +107,13 @@ def sol_toexcel(settings, imported_data, obj_result_dict, var_result_dict, times
     planning_sheet = workbook.add_worksheet("Planning_recipes") #manual sheet, without andas
     planning_sheet.write(0,0, 'Recipe per planned on day:', bold_format)
     planning_recipes = var_result_dict["Planning_recipes"]
-    index_not = planning_recipes[(planning_recipes!=1).all(1)].index
+    index_not = planning_recipes[(round(planning_recipes)!=1).all(1)].index #round toegevoegd vanwege vage afrondingen, 0.9999998 is geen 1 maar wel integer
     planning_recipes = planning_recipes.drop(index_not)
     row = 1
     col = 0
     for day in planning_recipes.iloc[:,1:]:
         planning_sheet.write(row, col, "Day "+str(day))
-        recipe_idx = planning_recipes[planning_recipes[day]==1].index[0]
+        recipe_idx = planning_recipes[round(planning_recipes[day])==1].index[0] #probleem is dat er float waardes komen. Waarom?
         recipe = ing_recipes.loc['recipe_id',recipe_idx]
         planning_sheet.write(row, col+1, recipe)
         row+=1
