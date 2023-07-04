@@ -26,6 +26,7 @@ def stepwise_reduction_waste(ll):
     plt.xlabel("Waste (g)")
     plt.ylabel("Total carbon (g CO2)")
     plt.title("Trade-off carbon and waste")
+    plt.savefig("Trade-off_GHGE_waste.pdf")
     
     stepwise_waste.plot(kind = 'scatter', x='Tot_waste', y='Comp_time')
     plt.xlabel("Waste (g)")

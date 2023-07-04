@@ -28,6 +28,13 @@ def recipe(r):
     recipe_id = ing_recipes.loc["recipe_id",r]
     return recipe_id
 
+#recipe to recipe number
+def recipe_id(r):
+    inpath = r"C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\2. Model input\22-03-2023\\"
+    ing_recipes = pd.read_excel(inpath+'recipe_standardised_df_netto.xlsx', sheet_name='Sheet1', index_col=0)
+    recipe_id=ing_recipes.loc[:,ing_recipes.loc["recipe_id"]==r].columns[0]
+    return recipe_id
+
 #nevocode to ingredient
 def ingredient(nevocode):
     ing_recipes = pd.read_excel (r'C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\Data\Recipe data\recipe_standardised_df.xlsx', sheet_name='Sheet1', index_col=0)

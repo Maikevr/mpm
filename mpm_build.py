@@ -11,6 +11,7 @@ import pandas as pd
 import numpy as np
 import time
 from mpm_supporting_functions import rewrite_buy
+from mpm_supporting_functions import recipe_id
 
 
 def menuplanning(settings, imported_data, name='menuplanning'): #let user decide with which variable to run this function
@@ -19,7 +20,7 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     m = gp.Model("menuplanning")
     m.setParam('MIPFocus',1)
     m.setParam('Heuristics', 0.5)
-    m.setParam('TimeLimit', 900) #TODO
+    m.setParam('TimeLimit', 2000) #TODO
     #m.setParam('MIPGap', 0.25)
     
     # =============================================================================
@@ -87,8 +88,9 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
             for i in ingredients: #kan dit mooier dan met 3 loops?                
                 planned = n_persons*gp.quicksum(ing_recipes.loc[i,r]*y[r,str(d)] for r in recipes)
                 m.addConstr(planned >= 0.01*b[i,str(d)]) #laat gepland eten in recepten 5 gram devieeren
-                m.addConstr(x[i,str(d)] <= planned+5*b[i,str(d)]) #b is help variable
-                m.addConstr(x[i,str(d)] >= planned-5*b[i,str(d)]) #misschien 5 npers maken?
+                #TODO
+                m.addConstr(x[i,str(d)] <= planned+10*b[i,str(d)]) #b is help variable
+                m.addConstr(x[i,str(d)] >= planned-10*b[i,str(d)]) #misschien 5 npers maken?
                 
     # 2.4.2 constraint to make sure that ingredients used for a day is substracted from ingredients on stock       
                 #m.addConstr(x[i,str(d)] == used, "ingredients used for cooking per day")
@@ -144,6 +146,14 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
                 m.addConstr(gp.quicksum(NIA[j,d]-NIAslack[j,d] for d in days[1:]) 
                             <= drv.loc[j,"Bovengrens"]*n_persons*n_days*(1+dev), "Weekly nutrient constraint upperbound")
     
+    # for j in nutrients:
+    #     if j in drv.index.values and drv.loc[j, "Daily or weekly nutrient"] == "weekly":
+    #         m.addConstr(gp.quicksum(NIA[j,d]+NIAslack[j,d] for d in days[1:]) 
+    #                     >= drv.loc[j,"ADH"]*n_persons*n_days*(1), "Weekly nutrient constraint lowerbound") #Later adapt this for custom drvs
+    #         if not np.isnan(drv.loc[j,"Bovengrens"]):
+    #             m.addConstr(gp.quicksum(NIA[j,d]-NIAslack[j,d] for d in days[1:]) 
+    #                         <= drv.loc[j,"Bovengrens"]*n_persons*n_days*(1), "Weekly nutrient constraint upperbound")
+    
     # 2.6.2 constraint for daily nutrient
     for j in nutrients:
         for d in days[1:]:
@@ -198,17 +208,26 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     
     #TODO
     """EXPERIMENT CONSTRAINTS"""
-    #m.addConstr(waste_ingrams <= tvar1) #Stepwise reduction waste while optimizing over carbon
+    m.addConstr(waste_ingrams <= tvar1) #Stepwise reduction waste while optimizing over carbon
     #m.addConstr(total_carbon <= tvar1) #Stepwise reduction carbon while optimizing over waste
-    #m.addConstrs(y[r,d] == 0 for d in days[1:] for r in [342, 1554, 1438, 1377, 1625])
+    
+    # tvar1 = "Tarwe met tomaatjes, noten en kruiden.txt;Ravioli met paddenstoelen en noten.txt;Bulgur met groente, tofu en noten.txt;Spinazie-ovenschotel.txt;Andijviestamppot met champignons en tofu-notenkruim.txt"
+    # prev = [recipe_id(r) for r in tvar1.split(";")] #Prohibiting previous picked recipes to enter the new menu plan
+    #m.addConstrs(y[r,d] == 0 for d in days[1:] for r in prev) #don't allow previous selected recipes. Manually done by: [342, 1554, 1438, 1377, 1625] instead of prev
+    # for r in prev:
+    #     m.addConstr(gp.quicksum(y[r,d] for d in days[1:])==1) #force to select previous selected recipes. Manually done by: [342, 1554, 1438, 1377, 1625] instead of prev
+
+    
     
     # =============================================================================
     #     Run the model
     # =============================================================================
     #tiebreaker = 0 # for tests
     
-    tiebreaker = 0.000001*total_carbon+0.000001*total_landuse+0.000001*waste_ingrams
-    +0.000001*carbon_waste+0.0001*total_cost + 0.00001*gp.quicksum(NIAslack[j,d] for j in nutrients for d in days[1:]) 
+    # tiebreaker = 0.000001*total_carbon+0.000001*total_landuse+0.000001*waste_ingrams
+    # +0.000001*carbon_waste+0.5*total_cost 
+    
+    tiebreaker = 0.000001*total_carbon+0.0005*total_landuse+0.00001*waste_ingrams+0.00001*carbon_waste+0.00001*total_cost 
     
     if optimize_over == 'Total_carbon':
          m.setObjective(total_carbon+tiebreaker, GRB.MINIMIZE)     #optimize over total_carbon or waste_ingrams or carbon waste
@@ -225,7 +244,7 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     print("---Initialisation time %s seconds ---" % (init_time - start_time))
     
     m.optimize()
-    
+
     # =============================================================================
     #    Print solutions/ solution to dataframe 
     # =============================================================================
