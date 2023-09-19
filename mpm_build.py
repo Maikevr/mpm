@@ -12,13 +12,14 @@ import numpy as np
 import time
 from mpm_supporting_functions import rewrite_buy
 from mpm_supporting_functions import recipe_id
+from Analyses_functions.recipetype import recipetype, recipetypelist
 
 
 def menuplanning(settings, imported_data, name='menuplanning'): #let user decide with which variable to run this function
     start_time = time.time()
     # Model
     m = gp.Model("menuplanning")
-    m.setParam('MIPFocus',1)
+    m.setParam('MIPFocus',2) #TODO
     m.setParam('Heuristics', 0.5)
     m.setParam('TimeLimit', 2000) #TODO
     #m.setParam('MIPGap', 0.25)
@@ -40,7 +41,7 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     excep_codes = imported_data["excep_codes"]
 
     # =============================================================================
-    #     Initializations of data
+    #     Initializations of data/indices
     # =============================================================================
     days = [str(x) for x in range(0, n_days+1)]
     recipes = ing_recipes.columns[1:]
@@ -49,6 +50,7 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     #eventually create a unique index for package ingredients combinations.
     #nutrients = drv.index.values # later aanpassen naar alle nutrients
     nutrients = fcd.columns.values[3:]
+    types = [1,2,3] #1 is vis, 2 is vlees, 3 is vega
     
     # =============================================================================
     #     Decision variables
@@ -64,6 +66,8 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     purchasecost_ing = m.addVars(ingredients, vtype=GRB.CONTINUOUS,name="purchasecost_ing")
     NIA = m.addVars(nutrients, days, vtype=GRB.CONTINUOUS, name="Nutrient Intake Absolute")
     NIAslack = m.addVars(nutrients, days, vtype=GRB.CONTINUOUS, name="Nutrient Intake Absolute slack variable")
+    typelist = m.addVars(days, vtype=GRB.INTEGER, name="typelist")
+    vvv = m.addVars(types, vtype=GRB.INTEGER, name="count of types")
     
     # =============================================================================
     #     Constraints
@@ -166,7 +170,19 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     for j in nutrients:
         for d in days[1:]:
             m.addConstr(NIAslack[j,d] == 0, "don't allow slack")
+            
+    # 2.7 Constraints to force product groups
+    #This code computes a list with all recipe types. Computationwise it might be better to do this in hindsight.
+    for d in days[1:]: 
+        typelist[d] = gp.quicksum(recipetype(r, ing_recipes, fcd)*y[r,d] for r in recipes) 
 
+    #This code counts the number of days meat, vegetarian, or fish recipes are suggested
+    rtl = recipetypelist(ing_recipes, fcd)
+    for t in types:
+        type_set = rtl.loc[rtl["type"]==t]
+        m.addConstr(vvv[t] == gp.quicksum(y[r,d] for d in days[1:] for r in type_set.index))
+    m.addConstr(vvv[1] >= 1) # have a fish (1)/meat (2) recipe at least once a week #TODO
+    
     #==========================================================================
     #     Objective funcition    
     # =============================================================================
@@ -208,15 +224,22 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     
     #TODO
     """EXPERIMENT CONSTRAINTS"""
-    m.addConstr(waste_ingrams <= tvar1) #Stepwise reduction waste while optimizing over carbon
+    #m.addConstr(waste_ingrams <= tvar1) #Stepwise reduction waste while optimizing over carbon
     #m.addConstr(total_carbon <= tvar1) #Stepwise reduction carbon while optimizing over waste
     
-    # tvar1 = "Tarwe met tomaatjes, noten en kruiden.txt;Ravioli met paddenstoelen en noten.txt;Bulgur met groente, tofu en noten.txt;Spinazie-ovenschotel.txt;Andijviestamppot met champignons en tofu-notenkruim.txt"
+    #This code prohibits previous selected recipes
+    # tvar1 = "Oosters stamppotje met gemarineerde tofu.txt;Gemarineerde bietjes.txt;Venkel-radijssalade met walnoten en aardappelpuree.txt;Geroerbakte spinazie op oosterse wijze.txt;Tofu in een pakje met wortelsalade.txt;Bulgur met groente, tofu en noten.txt;Ravioli met paddenstoelen en noten.txt;Andijviestamppot met champignons en tofu-notenkruim.txt;Spinazie-ovenschotel.txt;Tarwe met tomaatjes, noten en kruiden.txt"
     # prev = [recipe_id(r) for r in tvar1.split(";")] #Prohibiting previous picked recipes to enter the new menu plan
-    #m.addConstrs(y[r,d] == 0 for d in days[1:] for r in prev) #don't allow previous selected recipes. Manually done by: [342, 1554, 1438, 1377, 1625] instead of prev
-    # for r in prev:
-    #     m.addConstr(gp.quicksum(y[r,d] for d in days[1:])==1) #force to select previous selected recipes. Manually done by: [342, 1554, 1438, 1377, 1625] instead of prev
+    # m.addConstrs(y[r,d] == 0 for d in days[1:] for r in prev) #don't allow previous selected recipes. Manually done by: [342, 1554, 1438, 1377, 1625] instead of prev
+    # #for r in prev:
+    #    m.addConstr(gp.quicksum(y[r,d] for d in days[1:])==1) #force to select previous selected recipes. Manually done by: [342, 1554, 1438, 1377, 1625] instead of prev
 
+    #This code counts the number of days meat, vegetarian, or fish recipes are suggested
+    # rtl = recipetypelist(ing_recipes, fcd)
+    # for t in types:
+    #     type_set = rtl.loc[rtl["type"]==t]
+    #     m.addConstr(vvv[t] == gp.quicksum(y[r,d] for d in days[1:] for r in type_set.index))
+    # m.addConstr(vvv[1] >= 3) # have a fish (1)/meat (2) recipe at least once a week #TODO
     
     
     # =============================================================================
@@ -227,7 +250,8 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     # tiebreaker = 0.000001*total_carbon+0.000001*total_landuse+0.000001*waste_ingrams
     # +0.000001*carbon_waste+0.5*total_cost 
     
-    tiebreaker = 0.000001*total_carbon+0.0005*total_landuse+0.00001*waste_ingrams+0.00001*carbon_waste+0.00001*total_cost 
+    tiebreaker = 0.1*(0.000001*total_carbon+0.0005*total_landuse+0.00001*waste_ingrams+0.00001*carbon_waste+0.00001*total_cost)
+    #tiebreaker = 0.00000001*total_carbon+0.000005*total_landuse+0.0000001*waste_ingrams+0.0000001*carbon_waste+0.0000001*total_cost 
     
     if optimize_over == 'Total_carbon':
          m.setObjective(total_carbon+tiebreaker, GRB.MINIMIZE)     #optimize over total_carbon or waste_ingrams or carbon waste
@@ -363,6 +387,10 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
     wast_ingrams= waste_ingrams.getValue()
     carbon_waste = carbon_waste.getValue()
     tot_cost = total_cost.getValue()
+    
+    print("test voor vv")
+    for t in [1,2,3]:
+        print(vvv[t].X)
     
     obj_result_dict = {"Total_carbon":tot_carbon,"Total_landuse":tot_landuse,"Waste_grams":wast_ingrams,"Carbon_waste": carbon_waste, "Total_cost":tot_cost}
     
