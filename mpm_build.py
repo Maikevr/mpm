@@ -173,15 +173,17 @@ def menuplanning(settings, imported_data, name='menuplanning'): #let user decide
             
     # 2.7 Constraints to force product groups
     #This code computes a list with all recipe types. Computationwise it might be better to do this in hindsight.
+    inpath = r"C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\2. Model input\22-03-2023\\"
+    rcptype = pd.read_pickle(inpath+'recipetype.pkl') #Already made preprocessing portion step. Used instead of ing_recipes.
+    
     for d in days[1:]: 
-        typelist[d] = gp.quicksum(recipetype(r, ing_recipes, fcd)*y[r,d] for r in recipes) 
+        typelist[d] = gp.quicksum(rcptype.loc[r,"type"]*y[r,d] for r in recipes) 
 
     #This code counts the number of days meat, vegetarian, or fish recipes are suggested
-    rtl = recipetypelist(ing_recipes, fcd)
     for t in types:
-        type_set = rtl.loc[rtl["type"]==t]
+        type_set = rcptype.loc[rcptype["type"]==t]
         m.addConstr(vvv[t] == gp.quicksum(y[r,d] for d in days[1:] for r in type_set.index))
-    m.addConstr(vvv[1] >= 1) # have a fish (1)/meat (2) recipe at least once a week #TODO
+    #m.addConstr(vvv[1] >= 5) # have a fish (1)/meat (2) recipe at least once a week #TODO
     
     #==========================================================================
     #     Objective funcition    

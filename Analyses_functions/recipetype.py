@@ -42,10 +42,10 @@ def recipetype(recipe_id, ing_recipes_ps, fcd):
 def recipetypelist(ing_recipes_ps, fcd):
     ing_recipes_ps.insert(len(ing_recipes_ps.columns), column="nevoproductgroep", value=fcd["nevoproductgroep"]) #return ingredient labels
     typelst = []
-    for recipe_id in ing_recipes_ps.columns[1:-1]:
+    for recipe_id in ing_recipes_ps.columns[0:-1]:
         a = recipetype(recipe_id, ing_recipes_ps, fcd)
         typelst += [a]
-    recipetypelist = pd.DataFrame({"recipe_id":ing_recipes_ps.columns[1:-1], "type":typelst})
+    recipetypelist = pd.DataFrame({"recipe_id":ing_recipes_ps.columns[0:-1], "type":typelst})
     recipetypelist = recipetypelist.set_index('recipe_id')
     ing_recipes_ps = ing_recipes_ps.drop("nevoproductgroep", axis=1, inplace=True)
     return recipetypelist#, ing_recipes_ps
@@ -54,9 +54,10 @@ def recipetypelist(ing_recipes_ps, fcd):
     
 if __name__ == "__main__":
     inpath = r"C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\2. Model input\22-03-2023\\"
-    
+
     fcd = pd.read_excel(inpath+'FCD - Model input.xlsx', sheet_name='Sheet1', index_col=0)
-    ing_recipes = pd.read_pickle(inpath+'ing_recipes_ps_netto.pkl') #Already made preprocessing portion step. Used instead of ing_recipes.
+    ir = pd.read_pickle(inpath+'ing_recipes_ps_netto.pkl') #Already made preprocessing portion step. Used instead of ing_recipes.
+    ing_recipes = ir.loc[:, ir.loc['mealmoment'] == 'hoofdgerecht'].copy(deep=True) #subset of dishes that are a main meal
 
     #test = recipetype(7, ing_recipes, fcd)
     
