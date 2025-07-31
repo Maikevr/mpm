@@ -12,18 +12,12 @@ import numpy as np
 from mpm_build import menuplanning
 from mpm_excelwriter import sol_toexcel
 import sys
-#sys.path.insert(1, r"C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\1. Data\DRVs\\")
-# from Recipecheck import recipe_nutrientcontent
-# from preprocessing_ps import preprocessing_ps
-# from Analyses_functions.stepwise_reduction import stepwise_reduction_waste, stepwise_reduction_carbon
-# from Analyses_functions.household_size import household_size
 from Analyses_functions.all_obj_table import all_obj_table
 
 # ----------------------------------------------------------------------------
 # Import files
 # ----------------------------------------------------------------------------
 #Input data date: 22-03-2023. Change path if other input folder is desired
-#inpath = r"C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\2. Model input\22-03-2023\\"
 inpath = r"Model_input\22-03-2023\\"
 
 ing_recipes = pd.read_excel(inpath+'recipe_standardised_df_netto.xlsx', sheet_name='Sheet1', index_col=0)
