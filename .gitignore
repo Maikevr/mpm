@@ -1,8 +1,0 @@
-# .gitignore
-menuplanningmodel_JULY.py
-__pycache__
-Model results outputs
-.spyproject/config/backups/
-Menu planning model notes.docx
-.spyproject/config/workspace.ini
-
