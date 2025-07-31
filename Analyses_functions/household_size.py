@@ -24,13 +24,13 @@ def household_size(raw_output):
     household_size_df.plot(kind = 'scatter', x='n_pers', y='Tot_waste')
     plt.xlabel("Household size (# persons)")
     plt.ylabel("Waste (g)")
-    plt.title("Total waste for each household size") # maak dit ook voor waste per person
+    plt.title("Total waste for each household size")
     
     #make graphs
     household_size_df.plot(kind = 'scatter', x='n_pers', y='Tot_carbon')
     plt.xlabel("Household size (# persons)")
     plt.ylabel("Carbon (g)")
-    plt.title("Total carbon for each household size") # maak dit ook voor waste per person
+    plt.title("Total carbon for each household size") 
     
     household_size_df.to_excel("Model results outputs/"+str(run_id[0])+"_Household_size.xlsx")
     return household_size_df

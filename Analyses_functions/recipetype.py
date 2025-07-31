@@ -7,9 +7,6 @@ Created on Tue Jul  4 16:56:13 2023
 import pandas as pd
 
 def recipetype(recipe_id, ing_recipes_ps, fcd):
-    #insert nevoproductgroep info, is currently done in recipetypelist
-    #ing_recipes_ps.insert(len(ing_recipes_ps.columns), column="nevoproductgroep", value=fcd["nevoproductgroep"]) #return ingredient labels
-
     #Select the recipe to check. maybe implement this to save time
     rec_i = ing_recipes_ps.loc[:,recipe_id]
     
@@ -17,6 +14,7 @@ def recipetype(recipe_id, ing_recipes_ps, fcd):
     vis_i = ing_recipes_ps.loc[ing_recipes_ps['nevoproductgroep'] == "Vis",recipe_id]
     visgr=0
     for g in vis_i:
+        print("g: "+str(g))
         if g>0:
             visgr+=g
             
@@ -48,18 +46,16 @@ def recipetypelist(ing_recipes_ps, fcd):
     recipetypelist = pd.DataFrame({"recipe_id":ing_recipes_ps.columns[0:-1], "type":typelst})
     recipetypelist = recipetypelist.set_index('recipe_id')
     ing_recipes_ps = ing_recipes_ps.drop("nevoproductgroep", axis=1, inplace=True)
-    return recipetypelist#, ing_recipes_ps
-
+    return recipetypelist
 
     
 if __name__ == "__main__":
-    inpath = r"C:\Users\rooij091\OneDrive - Wageningen University & Research\05. PhD project\Paper 1; reducing householdfood waste by meal plans\2. Model input\22-03-2023\\"
-
+    inpath = r"Model_input\22-03-2023\\"
     fcd = pd.read_excel(inpath+'FCD - Model input.xlsx', sheet_name='Sheet1', index_col=0)
     ir = pd.read_pickle(inpath+'ing_recipes_ps_netto.pkl') #Already made preprocessing portion step. Used instead of ing_recipes.
     ing_recipes = ir.loc[:, ir.loc['mealmoment'] == 'hoofdgerecht'].copy(deep=True) #subset of dishes that are a main meal
 
-    #test = recipetype(7, ing_recipes, fcd)
+    test = recipetype(7, ing_recipes, fcd)
     
     test = recipetypelist(ing_recipes, fcd)
     test.to_pickle(inpath+'recipetype.pkl')

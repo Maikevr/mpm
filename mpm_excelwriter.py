@@ -8,7 +8,6 @@ Write model outputs to excel.
 """
 from datetime import datetime
 from datetime import date
-import xlsxwriter
 import pandas as pd
 
 def sol_toexcel(settings, imported_data, obj_result_dict, var_result_dict, times):
@@ -89,36 +88,54 @@ def sol_toexcel(settings, imported_data, obj_result_dict, var_result_dict, times
         else:
             overview.write(row, col+1, round(obj_result_dict[key]/(n_days*n_persons),2))
         row+=1
-        
+    
+    #vvv
+    overview.write("A16", "Meals included", bold_format)
+    vvvsol = var_result_dict["vvvsol"]
+    overview.write("A17", "# of times fish:")
+    overview.write("B17", vvvsol[1]["# fish:"])
+    overview.write("A18", "# of times meat:")
+    overview.write("B18", vvvsol[1]["# meat:"])
+    overview.write("A19", "# of times vegetarian:")
+    overview.write("B19", vvvsol[1]["# vegetarian:"])
+    
     #init time and total time
-    overview.write('A16', "Model initialization time:")
-    overview.write("B16", round(times["init_time"]))
-    overview.write('A17', "Model total time:")
-    overview.write("B17", round(times["total_time"]))
+    overview.write('A21', "Model initialization time:")
+    overview.write("B21", round(times["init_time"]))
+    overview.write('A22', "Model total time:")
+    overview.write("B22", round(times["total_time"]))
 
 
-    overview.write('A19', "Notes below are added manually:", bold_format)
+    overview.write('A24', "Notes below are added manually:", bold_format)
 
     # =============================================================================
     #     var sheets
     # =============================================================================
-
+    inpath = r"Model_input\22-03-2023\\"
+    urls = pd.read_csv(inpath+"recipe_urls 14-10-2022.csv")
+    urls = urls.set_index("titles")
     #Planning recipes
-    planning_sheet = workbook.add_worksheet("Planning_recipes") #manual sheet, without andas
-    planning_sheet.write(0,0, 'Recipe per planned on day:', bold_format)
+    planning_sheet = workbook.add_worksheet("Planning_recipes") 
+    planning_sheet.write(0,0, 'Recipes planned on:', bold_format)
     planning_recipes = var_result_dict["Planning_recipes"]
-    index_not = planning_recipes[(round(planning_recipes)!=1).all(1)].index #round toegevoegd vanwege vage afrondingen, 0.9999998 is geen 1 maar wel integer
+    index_not = planning_recipes[(round(planning_recipes)!=1).all(1)].index
     planning_recipes = planning_recipes.drop(index_not)
     row = 1
     col = 0
     for day in planning_recipes.iloc[:,1:]:
         planning_sheet.write(row, col, "Day "+str(day))
-        recipe_idx = planning_recipes[round(planning_recipes[day])==1].index[0] #probleem is dat er float waardes komen. Waarom?
-        recipe = ing_recipes.loc['recipe_id',recipe_idx]
+        recipe_idx = planning_recipes[round(planning_recipes[day])==1].index[0] 
+        recipe = ing_recipes.loc['recipe_id',recipe_idx].strip(".txt")
         planning_sheet.write(row, col+1, recipe)
+        planning_sheet.set_column(1,1,50)
+        try:
+            url = urls.loc[recipe,'urls']
+            planning_sheet.write(row, col+2, url)
+        except:
+            planning_sheet.write(row, col+2, "URL not found")
         row+=1
     
-    #NIA #later nog met kleurtjes aangeven of het te laag of te hoog is, en ontbrekende ook doen (not optimized)
+    #NIA 
     NIA = var_result_dict["NIA"]
     NIA.columns = ["Day "+str(d) for d in range(n_days+1)]
     NIA.to_excel(writer, sheet_name="NIA",startrow=0)
@@ -128,25 +145,24 @@ def sol_toexcel(settings, imported_data, obj_result_dict, var_result_dict, times
     j = 2 #starts at 1 because first row is column headers, and j is not zero indexed
     for i in NIA.index.values:
         if i in drv.index.values:
-            frange = 'B'+str(j)+':G'+str(j)
+            frange = 'B'+str(j)+':I'+str(j)
             NIAsheet.conditional_format(frange, {'type': 'cell',
                                        'criteria' : '>', 
                                        'value' : -99999999999,
                                        'format' : highlight_format})
-            #NIAsheet.set_row(j,None,highlight_format)
         j+=1
     
     #NIA per person
-    NIApp = var_result_dict["NIA"]/n_persons
+    NIApp = round(var_result_dict["NIA"]/n_persons,2)
     NIApp.columns = ["Day "+str(d) for d in range(n_days+1)]
     NIApp.to_excel(writer, sheet_name="NIA_pp",startrow=0)
     NIAppsheet = writer.sheets["NIA_pp"]
     NIAppsheet.set_column(0,0,20)
-    #highlight rows in DRV -> Misschien DRV ernaast printen?
+    #highlight rows in DRV
     j = 2 #starts at 1 because first row is column headers, and j is not zero indexed
     for i in NIApp.index.values:
         if i in drv.index.values:
-            frange = 'B'+str(j)+':G'+str(j)
+            frange = 'B'+str(j)+':I'+str(j)
             NIAppsheet.conditional_format(frange, {'type': 'cell',
                                        'criteria' : '>', 
                                        'value' : -99999999999,
@@ -154,18 +170,17 @@ def sol_toexcel(settings, imported_data, obj_result_dict, var_result_dict, times
         j+=1
     
     #Planning ingredients
-    planning_ingredients = var_result_dict["Planning_ingredients"]
+    planning_ingredients = round(var_result_dict["Planning_ingredients"])
     if ing_recipes.index[2:].equals(planning_ingredients.index) and len(planning_ingredients.columns) < n_days+2:
         planning_ingredients.insert(0, "new", ing_recipes.iloc[2:,0])
         planning_ingredients.columns = ['nevonaam']+["Day "+str(d) for d in range(n_days+1)]
-    #planning_ingredients = planning_ingredients.sort_values(["Day 1"], ascending=[False]) #presort  
     planning_ingredients.to_excel(writer, sheet_name="Planning_ingredients",startrow=0,startcol=0)   
     pi_sheet = writer.sheets["Planning_ingredients"]
     pi_sheet.set_column(1,1,30)   
     pi_sheet.autofilter('A1:H1')
     
     #Stock planning
-    stock_planning = var_result_dict["Stock_planning"]
+    stock_planning = round(var_result_dict["Stock_planning"])
     if ing_recipes.index[2:].equals(stock_planning.index) and len(stock_planning.columns) < n_days+2: #insert nevonames and don't insert twice
         stock_planning.insert(0, "nevonaam", ing_recipes.iloc[2:,0])
         stock_planning.columns = ['nevonaam']+["Day "+str(d) for d in range(n_days+1)]
@@ -184,7 +199,7 @@ def sol_toexcel(settings, imported_data, obj_result_dict, var_result_dict, times
     pp_sheet.set_column(3,3,20)
     pp_sheet.set_column(5,5,30)
     pp_sheet.set_column(6,11,10)
-    pp_sheet.set_row(0, None, bold_format) #Dit werkt niet, dan moet ik een custom pandas header toevoegen.
+    pp_sheet.set_row(0, None, bold_format) 
     pp_sheet.autofilter('A1:K1')
     
     #Purchase costs

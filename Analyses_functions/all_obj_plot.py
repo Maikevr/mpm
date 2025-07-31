@@ -4,12 +4,8 @@ Created on 19-06-2023
 
 """
 
-
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-
-
 
 
 def all_obj_plot(filename):
@@ -47,5 +43,3 @@ if name == __main__:
     filename = "Model results outputs/357_All_obj_table.xlsx"
     all_obj_plot(filename)
     
-    
-#zoiets wil ik: https://stackoverflow.com/questions/65230006/how-to-create-a-figure-of-subplots-of-grouped-bar-charts-in-python
