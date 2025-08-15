@@ -1,5 +1,6 @@
-# Meal Planning Model (MPM)
+This model is part of research conducted for the ZeroW project. The ZeroW project is funded by the European Union under grant agreement No. 101036388. CC BY 4.0 regulations apply.
 
+# Meal Planning Model (MPM)
 A mixed-integer meal planning model that generates meal plans by combining recipes to reduce household food waste. 
 The model considers:
 - retail package sizes
@@ -27,3 +28,5 @@ van Rooijen, M. A., Gerdessen, J. C., Claassen, G. D. H., & de Leeuw, S. L. J. M
 ## Usage
 
 Configure settings in 'mpm_callfile.py' and run "mpm_callfile.py"
+
+<img width="4125" height="919" alt="EN_FundedbytheEU_RGB_POS" src="https://github.com/user-attachments/assets/c0b837eb-13f1-478c-b598-cb53460ddaca" />
